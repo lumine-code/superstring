@@ -883,14 +883,33 @@ vector<TextSlice> TextBuffer::chunks() const {
 
 void TextBuffer::set_text(u16string &&new_text) {
   set_text_in_range(Range{Point(0, 0), extent()}, move(new_text));
+
+  // Replacing the whole buffer leaves the entire new text inside a single
+  // change in `top_layer`'s patch. If it stayed there, every subsequent edit
+  // would merge into that change and re-copy the whole buffer (O(n) per
+  // keystroke). Instead, materialize the new text as the layer's flat `text`
+  // and stop consulting its patch for reads — mirroring the fast structure the
+  // constructor produces, where the bulk text lives in a flat layer and edits
+  // accumulate as small patches above it. The patch is retained so that
+  // `is_modified` and `serialize_changes` still observe the delta relative to
+  // `base_layer` (the saved text).
+  Layer *layer = top_layer;
+  if (layer != base_layer && layer->uses_patch && layer->snapshot_count == 0) {
+    layer->text = Text{text()};
+    layer->uses_patch = false;
+  }
 }
 
 void TextBuffer::set_text(const u16string &new_text) {
-  set_text_in_range(Range{Point(0, 0), extent()}, u16string(new_text));
+  set_text(u16string(new_text));
 }
 
 void TextBuffer::set_text_in_range(Range old_range, u16string &&string) {
-  if (top_layer == base_layer || top_layer->snapshot_count > 0) {
+  // A flat layer (`!uses_patch`) serves reads from its materialized `text` and
+  // ignores its patch, so we can't splice edits into it directly. This covers
+  // both the base layer and a layer materialized by `set_text`; in either case
+  // start a fresh patch layer above it so edits accumulate cheaply.
+  if (top_layer == base_layer || top_layer->snapshot_count > 0 || !top_layer->uses_patch) {
     top_layer = new Layer(top_layer);
   }
 
@@ -1013,8 +1032,12 @@ TextBuffer::Snapshot *TextBuffer::create_snapshot() {
 }
 
 void TextBuffer::flush_changes() {
-  if (!top_layer->text) {
-    top_layer->text = Text{text()};
+  // Promote the current content to the new base (saved) state. Key off the
+  // layer identity rather than the presence of `top_layer->text`: `set_text`
+  // now materializes `text` on a non-base layer, so a set-but-unflushed layer
+  // is a real state that still needs flushing.
+  if (top_layer != base_layer) {
+    if (!top_layer->text) top_layer->text = Text{text()};
     base_layer = top_layer;
     consolidate_layers();
   }
@@ -1166,6 +1189,13 @@ void TextBuffer::squash_layers(const vector<Layer *> &layers) {
   layers[0]->previous_layer = previous_layer;
   layers[0]->text = move(text);
   layers[0]->patch = move(patch);
+
+  // When the squashed layer has its full content materialized, serve reads
+  // from that flat text rather than its (retained) patch. This keeps editing
+  // fast after a consolidation that folds in a whole-buffer `set_text`, and is
+  // consistent with `consolidate_layers`, which flags text-bearing layers the
+  // same way.
+  layers[0]->uses_patch = !layers[0]->text;
 
   for (layer_index = 1; layer_index < layer_count; layer_index++) {
     delete layers[layer_index];
