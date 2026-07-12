@@ -3,9 +3,9 @@
 #include <stdio.h>
 #include <sys/stat.h>
 #include <iostream>
+#include <cerrno>
+#include <cstring>
 
-#include "v8.h"
-#include "node.h"
 #include "addon-data.h"
 #include "text-buffer-wrapper.h"
 #include "number-conversion.h"
@@ -18,7 +18,6 @@
 #include "text-writer.h"
 #include "text-slice.h"
 #include "text-diff.h"
-#include "util.h"
 
 using namespace Napi;
 using std::move;
@@ -100,10 +99,10 @@ public:
     if (value.IsString()) {
       js_pattern = value.As<String>();
     } else {
-      v8::Local<v8::Value> js_regex_value = V8LocalValueFromJsValue(value);
-      if (!value.IsObject() || !js_regex_value->IsRegExp()) {
-          Napi::Error::New(env, "Argument must be a RegExp").ThrowAsJavaScriptException();
-          return nullptr;
+      Napi::Function regex_constructor = env.Global().Get("RegExp").As<Napi::Function>();
+      if (!value.IsObject() || !value.As<Object>().InstanceOf(regex_constructor)) {
+        Napi::Error::New(env, "Argument must be a RegExp").ThrowAsJavaScriptException();
+        return nullptr;
       }
 
       // Check if there is any cached regex inside the js object.
@@ -116,10 +115,9 @@ public:
       }
 
       // Extract necessary parameters from RegExp
-      v8::Local<v8::RegExp> v8_regex = js_regex_value.As<v8::RegExp>();
-      js_pattern = Napi::Value(env, JsValueFromV8LocalValue(v8_regex->GetSource())).As<String>();
-      if (v8_regex->GetFlags() & v8::RegExp::kIgnoreCase) ignore_case = true;
-      if (v8_regex->GetFlags() & v8::RegExp::kUnicode) unicode = true;
+      js_pattern = js_regex.Get("source").As<String>();
+      ignore_case = js_regex.Get("ignoreCase").ToBoolean().Value();
+      unicode = js_regex.Get("unicode").ToBoolean().Value();
     }
 
     // initialize Regex
@@ -722,13 +720,52 @@ namespace textbuffer {
     const char *syscall;
   };
 
+  static const char *error_code(int number) {
+    switch (number) {
+      case EACCES: return "EACCES";
+      case EBADF: return "EBADF";
+      case EBUSY: return "EBUSY";
+      case EEXIST: return "EEXIST";
+      case EFAULT: return "EFAULT";
+      case EFBIG: return "EFBIG";
+      case EILSEQ: return "EILSEQ";
+      case EINTR: return "EINTR";
+      case EINVAL: return "EINVAL";
+      case EIO: return "EIO";
+      case EMFILE: return "EMFILE";
+      case ENAMETOOLONG: return "ENAMETOOLONG";
+      case ENFILE: return "ENFILE";
+      case ENOENT: return "ENOENT";
+      case ENOSPC: return "ENOSPC";
+      case ENOTDIR: return "ENOTDIR";
+      case ENOTEMPTY: return "ENOTEMPTY";
+      case ENXIO: return "ENXIO";
+      case EPERM: return "EPERM";
+      case EPIPE: return "EPIPE";
+      case EROFS: return "EROFS";
+#ifdef EISDIR
+      case EISDIR: return "EISDIR";
+#endif
+#ifdef ELOOP
+      case ELOOP: return "ELOOP";
+#endif
+      default: return "UNKNOWN";
+    }
+  }
+
   static Napi::Value error_to_js(Env env, Error error, string encoding_name, string file_name) {
     if (error.number == INVALID_ENCODING) {
       return Napi::Error::New(env, ("Invalid encoding name: " + encoding_name).c_str()).Value();
     } else {
-      return Napi::Value(env, JsValueFromV8LocalValue(node::ErrnoException(
-        v8::Isolate::GetCurrent(), error.number, error.syscall, error.syscall, file_name.c_str()
-      )));
+      const char *code = error_code(error.number);
+      string message = string(code) + ": " + std::strerror(error.number) + ", " +
+        error.syscall + " '" + file_name + "'";
+      Napi::Object js_error = Napi::Error::New(env, message).Value();
+      js_error.Set("errno", Napi::Number::New(env, error.number));
+      js_error.Set("code", code);
+      js_error.Set("syscall", error.syscall);
+      js_error.Set("path", file_name);
+      return js_error;
     }
   }
 }

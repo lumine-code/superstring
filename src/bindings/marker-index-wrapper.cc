@@ -1,6 +1,5 @@
 #include <unordered_map>
 
-#include "v8.h"
 #include "napi.h"
 #include "addon-data.h"
 #include "marker-index-wrapper.h"
@@ -8,7 +7,6 @@
 #include "optional.h"
 #include "point-wrapper.h"
 #include "range.h"
-#include "util.h"
 
 using namespace Napi;
 using std::unordered_map;
@@ -61,15 +59,16 @@ Napi::Value MarkerIndexWrapper::generate_random_number(const CallbackInfo &info)
 }
 
 Napi::Value MarkerIndexWrapper::marker_ids_set_to_js(const MarkerIndex::MarkerIdSet &marker_ids) {
-  v8::Isolate *isolate = v8::Isolate::GetCurrent();
-  v8::Local<v8::Context> context = isolate->GetCurrentContext();
-  v8::Local<v8::Set> js_set = v8::Set::New(isolate);
+  Napi::Env env = Env();
+  Napi::Function set_constructor = env.Global().Get("Set").As<Napi::Function>();
+  Napi::Object js_set = set_constructor.New({});
+  Napi::Function add = js_set.Get("add").As<Napi::Function>();
 
   for (MarkerIndex::MarkerId id : marker_ids) {
-    (void)js_set->Add(context, v8::Integer::New(isolate, id));
+    add.Call(js_set, {Napi::Number::New(env, id)});
   }
 
-  return Napi::Value(Env(), JsValueFromV8LocalValue(js_set));
+  return js_set;
 }
 
 Array MarkerIndexWrapper::marker_ids_vector_to_js(const std::vector<MarkerIndex::MarkerId> &marker_ids) {
