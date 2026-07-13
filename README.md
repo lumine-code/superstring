@@ -1,13 +1,22 @@
 # @lumine-code/superstring
-[![CI](https://github.com/lumine-code/superstring/actions/workflows/ci.yml/badge.svg)](https://github.com/lumine-code/superstring/actions/workflows/ci.yml)
 
-Native library at the core of Lumine's text editor.
+Provides native text patches, marker indexing, and text storage for Lumine.
 
-## Installation notes:
+## Features
+
+- **Patch composition**: records, combines, inverts, serializes, and deserializes text changes.
+- **Marker indexing**: tracks logical ranges efficiently as text is edited.
+- **Native text storage**: loads, searches, mutates, and saves large text buffers through Node-API.
+
+## Installation
+
+```sh
+npm install @lumine-code/superstring
+```
 
 On macOS 13 and greater, the OS no longer offers GNU `libiconv`. We handle this by downloading it from Apple’s OSS GitHub page and building it as a pre-compilation step.
 
-## Components:
+## API
 
 ### Patch
 
@@ -158,3 +167,7 @@ A boundary is a position in the index where a marker starts or ends. Multiple ma
   ]
 }
 ```
+
+## Contributing
+
+Got ideas to make this package better, found a bug, or want to help add new features? Just drop your thoughts on GitHub. Any feedback is welcome!
