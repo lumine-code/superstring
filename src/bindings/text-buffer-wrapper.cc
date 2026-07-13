@@ -157,10 +157,13 @@ public:
   static void init(Napi::Env env) {
     auto *data = env.GetInstanceData<AddonData>();
     Function func = DefineClass(env, "SubsequenceMatch", {
-      InstanceAccessor<&SubsequenceMatchWrapper::get_word>("word", static_cast<napi_property_attributes>(napi_enumerable | napi_configurable)),
-      InstanceAccessor<&SubsequenceMatchWrapper::get_match_indices>("matchIndices", static_cast<napi_property_attributes>(napi_enumerable | napi_configurable)),
-      InstanceAccessor<&SubsequenceMatchWrapper::get_score, &SubsequenceMatchWrapper::set_score>(
-        "score", static_cast<napi_property_attributes>(napi_enumerable | napi_configurable)
+      InstanceAccessor("word", &SubsequenceMatchWrapper::get_word, nullptr,
+        static_cast<napi_property_attributes>(napi_enumerable | napi_configurable)),
+      InstanceAccessor("matchIndices", &SubsequenceMatchWrapper::get_match_indices, nullptr,
+        static_cast<napi_property_attributes>(napi_enumerable | napi_configurable)),
+      InstanceAccessor(
+        "score", &SubsequenceMatchWrapper::get_score, &SubsequenceMatchWrapper::set_score,
+        static_cast<napi_property_attributes>(napi_enumerable | napi_configurable)
       ),
     });
 
