@@ -1,80 +1,45 @@
-name: ci
+name: CI
+
 on:
-  - pull_request
-  - push
+  push:
+  pull_request:
+  workflow_dispatch:
+  workflow_call:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
 
 jobs:
-  Test:
-    if: "!contains(github.event.head_commit.message, '[skip ci]')"
+  test:
+    name: Node ${{ matrix.node }} on ${{ matrix.os }}
     runs-on: ${{ matrix.os }}
     strategy:
       fail-fast: false
       matrix:
-        os:
-          - ubuntu-latest
-          - macos-latest
-          - windows-latest
-        node_version:
-          - 16
-          - 18
-          - 20
-    name: Node ${{ matrix.node_version }} on ${{ matrix.os }}
-
+        include:
+          - os: ubuntu-latest
+            node: 20
+          - os: ubuntu-latest
+            node: 24
+          - os: macos-latest
+            node: 24
+          - os: windows-latest
+            node: 24
     steps:
+      - name: Enable Git symlinks on Windows
+        if: runner.os == 'Windows'
+        run: git config --global core.symlinks true
       - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
         with:
-          submodules: true
-      - name: Cache
-        uses: actions/cache@v3
-        with:
-          path: |
-            node_modules
-          key: ${{ runner.os }}-${{ matrix.node_version }}-${{ hashFiles('package.json') }}
-
-      - name: Setup node
-        uses: actions/setup-node@v4
-        with:
-          node-version: ${{ matrix.node_version }}
-
-      - name: Install Python setuptools (Unix-likes)
-        # This is needed for Python 3.12+, since many versions of node-gyp
-        # are incompatible with Python 3.12+, which no-longer ships 'distutils'
-        # out of the box. 'setuptools' package provides 'distutils'.
-        if: ${{ runner.os != 'Windows' }}
-        run: python3 -m pip install --break-system-packages setuptools
-
-      - name: Install Python setuptools (Windows)
-        # This is needed for Python 3.12+, since many versions of node-gyp
-        # are incompatible with Python 3.12+, which no-longer ships 'distutils'
-        # out of the box. 'setuptools' package provides 'distutils'.
-        if: ${{ runner.os == 'Windows' }}
-        run: |
-          python3 -m venv CI_venv
-          CI_venv\Scripts\activate.bat
-          python3 -m pip install setuptools
-
-      - name: Install dependencies (Unix-likes)
-        if: ${{ runner.os != 'Windows' }}
-        run: |
-          npm install
-
-      - name: Install dependencies (Windows)
-        if: ${{ runner.os == 'Windows' }}
-        run: |
-          CI_venv\Scripts\activate.bat
-          npm install
-
-      - name: Lint
-        run: npm run standard
-
+          node-version: ${{ matrix.node }}
+      - name: Install dependencies
+        run: npm ci
       - name: Run tests
-        run: |
-          npm run test:node
-          npm run test:native
-
-  Skip:
-    if: contains(github.event.head_commit.message, '[skip ci]')
-    runs-on: ubuntu-latest
-    steps:
-      - name: Skip CI 🚫
-        run: echo skip ci
+        run: npm run standard && npm run test:node && npm run test:native
+      - name: Validate package contents
+        run: npm pack --dry-run

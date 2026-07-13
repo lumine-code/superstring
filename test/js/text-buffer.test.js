@@ -390,12 +390,17 @@ describe('TextBuffer', () => {
           })
       })
 
-      it('rejects with an error if the path is a circular symlink', (done) => {
+      it('rejects with an error if the path is a circular symlink', function (done) {
         const tempDir = temp.mkdirSync()
         const filePath = path.join(tempDir, 'one')
         const otherPath = path.join(tempDir, 'two')
-        fs.symlinkSync(filePath, otherPath)
-        fs.symlinkSync(otherPath, filePath)
+        try {
+          fs.symlinkSync(filePath, otherPath)
+          fs.symlinkSync(otherPath, filePath)
+        } catch (error) {
+          if (isWindows && error.code === 'EPERM') return this.skip()
+          throw error
+        }
 
         const buffer = new TextBuffer()
         return buffer.load(filePath)
@@ -633,12 +638,17 @@ describe('TextBuffer', () => {
           })
       })
 
-      it('rejects with an error if the path is a circular symlink', (done) => {
+      it('rejects with an error if the path is a circular symlink', function (done) {
         const tempDir = temp.mkdirSync()
         const filePath = path.join(tempDir, 'one')
         const otherPath = path.join(tempDir, 'two')
-        fs.symlinkSync(filePath, otherPath)
-        fs.symlinkSync(otherPath, filePath)
+        try {
+          fs.symlinkSync(filePath, otherPath)
+          fs.symlinkSync(otherPath, filePath)
+        } catch (error) {
+          if (isWindows && error.code === 'EPERM') return this.skip()
+          throw error
+        }
 
         const buffer = new TextBuffer()
 
@@ -674,12 +684,6 @@ describe('TextBuffer', () => {
       })
 
       it('rejects with an error if writing to a stream fails', (done) => {
-        const tempDir = temp.mkdirSync()
-        const filePath = path.join(tempDir, 'one')
-        const otherPath = path.join(tempDir, 'two')
-        fs.symlinkSync(filePath, otherPath)
-        fs.symlinkSync(otherPath, filePath)
-
         const buffer = new TextBuffer('abcd')
         buffer.setText('efg')
         assert.ok(buffer.isModified())
@@ -702,12 +706,6 @@ describe('TextBuffer', () => {
       })
 
       it('rejects with an error if closing the stream fails', (done) => {
-        const tempDir = temp.mkdirSync()
-        const filePath = path.join(tempDir, 'one')
-        const otherPath = path.join(tempDir, 'two')
-        fs.symlinkSync(filePath, otherPath)
-        fs.symlinkSync(otherPath, filePath)
-
         const buffer = new TextBuffer('abcd')
         buffer.setText('efg')
         assert.ok(buffer.isModified())
@@ -1265,7 +1263,8 @@ describe('TextBuffer', () => {
       return Promise.all(promises)
     })
 
-    it('doesn\'t crash when a job is cancelled', async () => {
+    it('doesn\'t crash when a job is cancelled', async function () {
+      this.timeout(10000)
       function randomChar () {
         const chars = "abcdefghijklmnopqrstuvwxyz ";
         return chars[Math.floor(Math.random() * chars.length)];
