@@ -1,6 +1,6 @@
 const http = require('http')
 const fs = require('fs')
-const unzip = require('unzip')
+const unzip = require('unzipper')
 const { TextBuffer } = require('..')
 
 const unzipper = unzip.Parse()

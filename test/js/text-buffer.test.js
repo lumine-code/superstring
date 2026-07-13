@@ -1,6 +1,7 @@
 const fs = require('fs')
+const os = require('os')
 const path = require('path')
-const temp = require('temp').track()
+const {randomUUID} = require('crypto')
 const {Writable} = require('stream')
 const {assert} = require('chai')
 const {TextBuffer, MarkerIndex} = require('../..')
@@ -10,6 +11,20 @@ const {traverse} = require('./helpers/point-helpers')
 const {getExtent} = require('./helpers/text-helpers')
 const words = require('./helpers/words')
 const MAX_INT32 = 4294967296
+
+const tempRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'superstring-'))
+const temp = {
+  mkdirSync () {
+    return fs.mkdtempSync(path.join(tempRoot, 'directory-'))
+  },
+  openSync (prefix = 'file') {
+    const filePath = path.join(tempRoot, `${prefix}-${randomUUID()}`)
+    fs.closeSync(fs.openSync(filePath, 'w'))
+    return {path: filePath}
+  }
+}
+
+after(() => fs.rmSync(tempRoot, {recursive: true, force: true}))
 
 const isWindows = process.platform === 'win32'
 
@@ -372,25 +387,21 @@ describe('TextBuffer', () => {
     })
 
     describe('error handling', () => {
-      it('rejects with an error if the path points to a directory', (done) => {
+      it('rejects with an error if the path points to a directory', () => {
         const buffer = new TextBuffer()
         const filePath = temp.mkdirSync()
 
         return buffer.load(filePath)
-          .then(() => {
-            done(new Error('Expected an error'))
-          })
-          .catch((error) => {
+          .then(() => { throw new Error('Expected an error') }, (error) => {
             if (!isWindows) {
               assert.include(error.message, ' read ')
               assert.equal(error.code, 'EISDIR')
             }
             assert.equal(error.path, filePath)
-            done()
           })
       })
 
-      it('rejects with an error if the path is a circular symlink', function (done) {
+      it('rejects with an error if the path is a circular symlink', function () {
         const tempDir = temp.mkdirSync()
         const filePath = path.join(tempDir, 'one')
         const otherPath = path.join(tempDir, 'two')
@@ -404,16 +415,12 @@ describe('TextBuffer', () => {
 
         const buffer = new TextBuffer()
         return buffer.load(filePath)
-          .then(() => {
-            done(new Error('Expected an error'))
-          })
-          .catch((error) => {
+          .then(() => { throw new Error('Expected an error') }, (error) => {
             if (!isWindows) {
               assert.include(error.message, ' open ')
               assert.equal(error.code, 'ELOOP')
             }
             assert.equal(error.path, filePath)
-            done()
           })
       })
     })
@@ -618,7 +625,7 @@ describe('TextBuffer', () => {
     })
 
     describe('error handling', () => {
-      it('rejects with an error if the path points to a directory', (done) => {
+      it('rejects with an error if the path points to a directory', () => {
         const buffer = new TextBuffer()
         const filePath = temp.mkdirSync()
 
@@ -626,19 +633,15 @@ describe('TextBuffer', () => {
         assert.ok(buffer.isModified())
 
         return buffer.save(filePath)
-          .then(() => {
-            done(new Error('Expected an error'))
-          })
-          .catch((error) => {
+          .then(() => { throw new Error('Expected an error') }, (error) => {
             assert.include(error.message, ' open ')
             assert.equal(error.code, isWindows ? 'EACCES' : 'EISDIR')
             assert.equal(error.path, filePath)
             assert.ok(buffer.isModified())
-            done()
           })
       })
 
-      it('rejects with an error if the path is a circular symlink', function (done) {
+      it('rejects with an error if the path is a circular symlink', function () {
         const tempDir = temp.mkdirSync()
         const filePath = path.join(tempDir, 'one')
         const otherPath = path.join(tempDir, 'two')
@@ -656,30 +659,22 @@ describe('TextBuffer', () => {
         assert.ok(buffer.isModified())
 
         return buffer.save(filePath)
-          .then(() => {
-            done(new Error('Expected an error'))
-          })
-          .catch((error) => {
+          .then(() => { throw new Error('Expected an error') }, (error) => {
             assert.include(error.message, ' open ')
             assert.equal(error.code, isWindows ? 'EINVAL' : 'ELOOP')
             assert.equal(error.path, filePath)
             assert.ok(buffer.isModified())
-            done()
           })
       })
 
-      it('rejects if neither the text nor the replacement character can be represented in the given encoding', (done) => {
+      it('rejects if neither the text nor the replacement character can be represented in the given encoding', () => {
         const buffer = new TextBuffer('💪💪💪')
         const {path: filePath} = temp.openSync()
         return buffer.save(filePath, 'iso88591')
-          .then(() => {
-            done(new Error('Expected an error'))
-          })
-          .catch((error) => {
+          .then(() => { throw new Error('Expected an error') }, (error) => {
             assert.include(error.message, ' write ')
             assert.equal(error.code, 'EILSEQ')
             assert.equal(error.path, filePath)
-            done()
           })
       })
 

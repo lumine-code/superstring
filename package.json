@@ -12,10 +12,9 @@
     "test:native": "node ./script/test-native.js",
     "test:node": "mocha test/js/*.test.js",
     "test:threads": "node ./test/js/threads-outer.js",
-    "test:browser": "SUPERSTRING_USE_BROWSER_VERSION=1 mocha test/js/*.js",
-    "test": "npm run test:node && npm run test:browser",
-    "benchmark": "node benchmark/marker-index.benchmark.js",
-    "standard": "standard --recursive src test"
+    "test:browser": "cross-env SUPERSTRING_USE_BROWSER_VERSION=1 mocha test/js/*.js",
+    "test": "npm run test:node",
+    "benchmark": "node benchmark/marker-index.benchmark.js"
   },
   "repository": "https://github.com/lumine-code/superstring",
   "keywords": [
@@ -23,7 +22,7 @@
     "data-structure"
   ],
   "engines": {
-    "node": ">=16"
+    "node": ">=20"
   },
   "license": "MIT",
   "publishConfig": {
@@ -32,21 +31,17 @@
   "bugs": "https://github.com/lumine-code/superstring/issues",
   "homepage": "https://github.com/lumine-code/superstring",
   "devDependencies": {
-    "chai": "^2.0.0",
-    "mocha": "^2.3.4",
-    "random-seed": "^0.2.0",
-    "standard": "^4.5.4",
-    "temp": "^0.8.3",
-    "unzip": "^0.1.11"
-  },
-  "standard": {
-    "global": [
-      "describe",
-      "it",
-      "expect"
-    ]
+    "chai": "^4.5.0",
+    "cross-env": "^10.1.0",
+    "mocha": "^11.7.6",
+    "random-seed": "^0.3.0",
+    "unzipper": "^0.12.3"
   },
   "dependencies": {
     "node-addon-api": "^8.9.0"
+  },
+  "overrides": {
+    "diff": "^8.0.3",
+    "serialize-javascript": "^7.0.5"
   }
 }
