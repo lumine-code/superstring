@@ -1,6 +1,6 @@
 {
-  "name": "@pulsar-edit/superstring",
-  "version": "3.0.5",
+  "name": "@lumine-code/superstring",
+  "version": "4.0.0",
   "description": "A data structure to efficiently represent the results of applying patches.",
   "main": "./index",
   "browser": "./browser",
@@ -18,7 +18,7 @@
   },
   "repository": {
     "type": "git",
-    "url": "https://github.com/pulsar-edit/superstring.git"
+    "url": "https://github.com/lumine-code/superstring.git"
   },
   "keywords": [
     "text",
@@ -30,9 +30,9 @@
   "author": "Nathan Sobo <nathan@github.com>",
   "license": "MIT",
   "bugs": {
-    "url": "https://github.com/pulsar-edit/superstring/issues"
+    "url": "https://github.com/lumine-code/superstring/issues"
   },
-  "homepage": "https://github.com/pulsar-edit/superstring",
+  "homepage": "https://github.com/lumine-code/superstring",
   "devDependencies": {
     "chai": "^2.0.0",
     "mocha": "^2.3.4",

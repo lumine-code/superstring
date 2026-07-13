@@ -1,7 +1,7 @@
-# Superstring
-[![ci](https://github.com/atom/superstring/actions/workflows/ci.yml/badge.svg)](https://github.com/atom/superstring/actions/workflows/ci.yml)  
+# @lumine-code/superstring
+[![CI](https://github.com/lumine-code/superstring/actions/workflows/ci.yml/badge.svg)](https://github.com/lumine-code/superstring/actions/workflows/ci.yml)
 
-Native library at the core of Atom's text editor.
+Native library at the core of Lumine's text editor.
 
 ## Installation notes:
 
