@@ -427,13 +427,23 @@ static Value encode_ranges(Env env, const vector<Range> &ranges) {
 
 template <bool single_result>
 class TextBufferSearcher : public Napi::AsyncWorker {
+  // The snapshot points into the TextBuffer embedded in the buffer's wrapper,
+  // and the regex lives on the JS regex object. Hold both JS objects strongly
+  // until the worker is destroyed: if the buffer were collected while this
+  // worker is queued or running, deleting the snapshot afterwards would write
+  // into freed memory (Snapshot::~Snapshot decrements the buffer's layer
+  // snapshot counts and may consolidate layers).
+  Napi::ObjectReference js_buffer;
+  Napi::ObjectReference js_regex;
   const TextBuffer::Snapshot *snapshot;
   const Regex *regex;
   Range search_range;
   vector<Range> matches;
 
 public:
-  TextBufferSearcher(Function &completion_callback,
+  TextBufferSearcher(Object buffer,
+                     Value regex_value,
+                     Function &completion_callback,
                      const TextBuffer::Snapshot *snapshot,
                      const Regex *regex,
                      const Range &search_range) :
@@ -441,6 +451,19 @@ public:
     snapshot{snapshot},
     regex{regex},
     search_range(search_range) {
+    js_buffer.Reset(buffer, 1);
+    if (regex_value.IsObject()) {
+      js_regex.Reset(regex_value.As<Object>(), 1);
+    }
+  }
+
+  ~TextBufferSearcher() {
+    // Error and cancellation paths never reach OnOK; release the snapshot
+    // while the buffer is still alive (guaranteed by js_buffer above).
+    if (snapshot) {
+      delete snapshot;
+      snapshot = nullptr;
+    }
   }
 
   void Execute() override {
@@ -559,6 +582,8 @@ void TextBufferWrapper::find(const CallbackInfo &info) {
     }
 
     auto async_worker = new TextBufferSearcher<true>(
+      info.This().As<Object>(),
+      info[0],
       callback,
       text_buffer.create_snapshot(),
       regex,
@@ -579,6 +604,8 @@ void TextBufferWrapper::find_all(const CallbackInfo &info) {
       if (!search_range) return;
     }
     auto async_worker = new TextBufferSearcher<false>(
+      info.This().As<Object>(),
+      info[0],
       callback,
       text_buffer.create_snapshot(),
       regex,
@@ -857,6 +884,15 @@ class Loader {
     cancelled{false} {
     }
 
+  ~Loader() {
+    // Error and cancellation paths can skip Finish(); release the snapshot
+    // exactly once (Finish() nulls it after deleting).
+    if (snapshot) {
+      delete snapshot;
+      snapshot = nullptr;
+    }
+  }
+
   template <typename Function>
   void Execute(const Function &callback) {
     if (!loaded_text) loaded_text = Text{load_file(file_name, encoding_name, &error, callback)};
@@ -921,20 +957,28 @@ class Loader {
 };
 
 class LoadWorker : public AsyncProgressWorker<uint32_t> {
+  // Keeps the JS buffer alive until the worker is destroyed: Finish() writes
+  // heavily into the buffer (reset/flush_changes) and deletes a snapshot that
+  // points into it, which must never happen after the buffer is collected.
+  Napi::ObjectReference js_buffer;
   Loader loader;
 
  public:
-  LoadWorker(Function &completion_callback, FunctionReference progress_callback,
+  LoadWorker(Object buffer_object, Function &completion_callback, FunctionReference progress_callback,
              TextBuffer *buffer, TextBuffer::Snapshot *snapshot, string &&file_name,
              string &&encoding_name, bool force, bool compute_patch) :
     AsyncProgressWorker(completion_callback, "TextBuffer.load"),
-    loader(move(progress_callback), buffer, snapshot, move(file_name), move(encoding_name), force, compute_patch) {}
+    loader(move(progress_callback), buffer, snapshot, move(file_name), move(encoding_name), force, compute_patch) {
+    js_buffer.Reset(buffer_object, 1);
+  }
 
-  LoadWorker(Function &completion_callback, FunctionReference progress_callback,
+  LoadWorker(Object buffer_object, Function &completion_callback, FunctionReference progress_callback,
              TextBuffer *buffer, TextBuffer::Snapshot *snapshot, Text &&text,
              bool force, bool compute_patch) :
     AsyncProgressWorker(completion_callback, "TextBuffer.load"),
-    loader(move(progress_callback), buffer, snapshot, move(text), force, compute_patch) {}
+    loader(move(progress_callback), buffer, snapshot, move(text), force, compute_patch) {
+    js_buffer.Reset(buffer_object, 1);
+  }
 
   void Execute(const ExecutionProgress &progress) override {
     loader.Execute([&progress](uint32_t percent_done) {
@@ -1037,6 +1081,7 @@ void TextBufferWrapper::load(const CallbackInfo &info) {
     string encoding_name = js_encoding_name.Utf8Value();
 
     worker = new LoadWorker(
+      info.This().As<Object>(),
       completion_callback,
       move(progress_callback),
       &text_buffer,
@@ -1049,6 +1094,7 @@ void TextBufferWrapper::load(const CallbackInfo &info) {
   } else {
     auto text_writer = TextWriter::Unwrap(info[4].As<Object>());
     worker = new LoadWorker(
+      info.This().As<Object>(),
       completion_callback,
       move(progress_callback),
       &text_buffer,
@@ -1063,6 +1109,10 @@ void TextBufferWrapper::load(const CallbackInfo &info) {
 }
 
 class BaseTextComparisonWorker : public AsyncWorker {
+  // Keeps the JS buffer alive until the worker is destroyed; see
+  // TextBufferSearcher for why deleting the snapshot after the buffer has
+  // been collected corrupts freed memory.
+  Napi::ObjectReference js_buffer;
   TextBuffer::Snapshot *snapshot;
   string file_name;
   string encoding_name;
@@ -1070,13 +1120,22 @@ class BaseTextComparisonWorker : public AsyncWorker {
   bool result;
 
  public:
-  BaseTextComparisonWorker(Function &completion_callback, TextBuffer::Snapshot *snapshot,
+  BaseTextComparisonWorker(Object buffer, Function &completion_callback, TextBuffer::Snapshot *snapshot,
                        string &&file_name, string &&encoding_name) :
     AsyncWorker(completion_callback, "TextBuffer.baseTextMatchesFile"),
     snapshot{snapshot},
     file_name{move(file_name)},
     encoding_name{move(encoding_name)},
-    result{false} {}
+    result{false} {
+    js_buffer.Reset(buffer, 1);
+  }
+
+  ~BaseTextComparisonWorker() {
+    if (snapshot) {
+      delete snapshot;
+      snapshot = nullptr;
+    }
+  }
 
   void Execute() override {
     u16string file_contents = load_file(file_name, encoding_name, &error, [](size_t progress) {});
@@ -1109,6 +1168,7 @@ void TextBufferWrapper::base_text_matches_file(const CallbackInfo &info) {
     string encoding_name = js_encoding_name.Utf8Value();
 
     (new BaseTextComparisonWorker(
+      info.This().As<Object>(),
       completion_callback,
       text_buffer.create_snapshot(),
       move(file_path),
@@ -1123,18 +1183,32 @@ void TextBufferWrapper::base_text_matches_file(const CallbackInfo &info) {
 }
 
 class SaveWorker : public AsyncWorker {
+  // Keeps the JS buffer alive until the worker is destroyed. This worker is
+  // the most dangerous of the three: Finish() flushes preceding changes into
+  // the buffer's layers, which writes heavily into freed memory if the buffer
+  // was collected while the save was in flight.
+  Napi::ObjectReference js_buffer;
   TextBuffer::Snapshot *snapshot;
   string file_name;
   string encoding_name;
   optional<textbuffer::Error> error;
 
  public:
-  SaveWorker(Function &completion_callback, TextBuffer::Snapshot *snapshot,
+  SaveWorker(Object buffer, Function &completion_callback, TextBuffer::Snapshot *snapshot,
              string &&file_name, string &&encoding_name) :
     AsyncWorker(completion_callback, "TextBuffer.save"),
     snapshot{snapshot},
     file_name{file_name},
-    encoding_name(encoding_name) {}
+    encoding_name(encoding_name) {
+    js_buffer.Reset(buffer, 1);
+  }
+
+  ~SaveWorker() {
+    if (snapshot) {
+      delete snapshot;
+      snapshot = nullptr;
+    }
+  }
 
   void Execute() override {
     auto conversion = transcoding_to(encoding_name.c_str());
@@ -1199,6 +1273,7 @@ void TextBufferWrapper::save(const CallbackInfo &info) {
 
   Function completion_callback = info[2].As<Function>();
   (new SaveWorker(
+    info.This().As<Object>(),
     completion_callback,
     text_buffer.create_snapshot(),
     move(file_path),
