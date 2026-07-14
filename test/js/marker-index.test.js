@@ -6,8 +6,6 @@ const MAX_INT32 = 4294967296
 
 describe('MarkerIndex', () => {
   it('maintains correct marker positions during randomized insertions and mutations', function () {
-    this.timeout(Infinity)
-
     let seed, seedMessage, random, markerIndex, markers, idCounter
 
     const generateSeed = Random.create()

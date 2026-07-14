@@ -211,7 +211,6 @@ describe('Patch', function () {
   })
 
   it('correctly records random splices', function () {
-    this.timeout(Infinity)
 
     for (let i = 0; i < 100; i++) {
       let seed = Date.now()
@@ -357,7 +356,6 @@ describe('Patch', function () {
   })
 
   it('does not crash when inconsistent splices are applied', () => {
-    this.timeout(Infinity)
 
     for (let i = 0; i < 100; i++) {
       let seed = Date.now()

@@ -10,9 +10,9 @@
     "build:browser": "script/build-browser-version.sh",
     "build": "npm run build:node && npm run build:browser",
     "test:native": "node ./script/test-native.js",
-    "test:node": "mocha test/js/*.test.js",
+    "test:node": "jasmine",
     "test:threads": "node ./test/js/threads-outer.js",
-    "test:browser": "cross-env SUPERSTRING_USE_BROWSER_VERSION=1 mocha test/js/*.js",
+    "test:browser": "cross-env SUPERSTRING_USE_BROWSER_VERSION=1 jasmine",
     "test": "npm run test:node",
     "benchmark": "node benchmark/marker-index.benchmark.js"
   },
@@ -33,7 +33,7 @@
   "devDependencies": {
     "chai": "^4.5.0",
     "cross-env": "^10.1.0",
-    "mocha": "^11.7.6",
+    "jasmine": "^6.3.0",
     "random-seed": "^0.3.0",
     "unzipper": "^0.12.3"
   },

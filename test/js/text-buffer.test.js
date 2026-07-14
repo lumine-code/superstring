@@ -24,7 +24,7 @@ const temp = {
   }
 }
 
-after(() => fs.rmSync(tempRoot, {recursive: true, force: true}))
+afterAll(() => fs.rmSync(tempRoot, {recursive: true, force: true}))
 
 const isWindows = process.platform === 'win32'
 
@@ -1259,7 +1259,6 @@ describe('TextBuffer', () => {
     })
 
     it('doesn\'t crash when a job is cancelled', async function () {
-      this.timeout(10000)
       function randomChar () {
         const chars = "abcdefghijklmnopqrstuvwxyz ";
         return chars[Math.floor(Math.random() * chars.length)];
@@ -1456,7 +1455,6 @@ describe('TextBuffer', () => {
   describe('concurrent IO', function () {
     if (!TextBuffer.prototype.load) return;
 
-    this.timeout(60 * 1000);
 
     it('handles multiple calls to .load at a time', () => {
       const buffer = new TextBuffer('abc')
