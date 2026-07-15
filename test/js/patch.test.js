@@ -1,5 +1,5 @@
 const Random = require('random-seed')
-const {assert} = require('chai')
+const {assert} = require('./helpers/assert')
 const TestDocument = require('./helpers/test-document')
 const textHelpers = require('./helpers/text-helpers')
 const {

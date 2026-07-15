@@ -1,6 +1,6 @@
 const Random = require('random-seed')
 const {traverse, traversalDistance, compare, isZero, max, format: formatPoint} = require('./helpers/point-helpers')
-const {assert} = require('chai')
+const {assert} = require('./helpers/assert')
 const {MarkerIndex} = require('../..')
 const MAX_INT32 = 4294967296
 
