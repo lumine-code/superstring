@@ -32,4 +32,20 @@ for (let i = 0; i < QUERY_COUNT; i++) {
 }
 console.timeEnd(`${QUERY_COUNT} findIntersecting over ${MARKER_COUNT} markers`)
 
+// Editor-shaped workload: every keystroke splices, then the renderer queries
+// intersecting markers and asks a screenful of them for their positions.
+const CYCLE_COUNT = 500
+console.time(`${CYCLE_COUNT} interleaved splice+query+getStart cycles`)
+for (let i = 0; i < CYCLE_COUNT; i++) {
+  markerIndex.splice(center, {row: 0, column: 0}, {row: 0, column: 1})
+  const ids = markerIndex.findIntersecting({row: 0, column: 0}, {row: 2 * MARKER_COUNT, column: 0})
+  let sampled = 0
+  for (const id of ids) {
+    markerIndex.getStart(id)
+    if (++sampled === 200) break
+  }
+  total += ids.size
+}
+console.timeEnd(`${CYCLE_COUNT} interleaved splice+query+getStart cycles`)
+
 console.log(`total ids marshalled: ${total}`)

@@ -125,7 +125,12 @@ private:
   std::unordered_map<MarkerId, Node*> end_nodes_by_id;
   Iterator iterator;
   flat_set<MarkerId> exclusive_marker_ids;
-  mutable std::unordered_map<const Node*, Point> node_position_cache;
+
+  // Positions are stamped with the version current at insertion; a splice
+  // bumps the version, turning every older entry into a miss without paying
+  // for a full clear. Stale entries for freed nodes are therefore harmless.
+  mutable std::unordered_map<const Node*, std::pair<Point, uint64_t>> node_position_cache;
+  uint64_t node_position_cache_version = 0;
 };
 
 #endif // MARKER_INDEX_H_
