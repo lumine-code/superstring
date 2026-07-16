@@ -30,6 +30,7 @@ private:
   Napi::Value get_text_in_range(const Napi::CallbackInfo &info);
   void set_text(const Napi::CallbackInfo &info);
   void set_text_in_range(const Napi::CallbackInfo &info);
+  Napi::Value diff(const Napi::CallbackInfo &info);
   Napi::Value line_for_row(const Napi::CallbackInfo &info);
   Napi::Value line_length_for_row(const Napi::CallbackInfo &info);
   Napi::Value line_ending_for_row(const Napi::CallbackInfo &info);

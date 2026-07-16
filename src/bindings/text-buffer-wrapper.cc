@@ -231,6 +231,7 @@ void TextBufferWrapper::init(Napi::Env env, Object exports) {
     InstanceMethod<&TextBufferWrapper::set_text_in_range>("setTextInRange", napi_default_method),
     InstanceMethod<&TextBufferWrapper::get_text>("getText", napi_default_method),
     InstanceMethod<&TextBufferWrapper::set_text>("setText", napi_default_method),
+    InstanceMethod<&TextBufferWrapper::diff>("diff", napi_default_method),
     InstanceMethod<&TextBufferWrapper::line_for_row>("lineForRow", napi_default_method),
     InstanceMethod<&TextBufferWrapper::line_length_for_row>("lineLengthForRow", napi_default_method),
     InstanceMethod<&TextBufferWrapper::line_ending_for_row>("lineEndingForRow", napi_default_method),
@@ -339,6 +340,19 @@ void TextBufferWrapper::set_text(const CallbackInfo &info) {
   if (text) {
     text_buffer.set_text(move(*text));
   }
+}
+
+Napi::Value TextBufferWrapper::diff(const CallbackInfo &info) {
+  auto env = info.Env();
+  auto &text_buffer = this->text_buffer;
+  auto text = string_conversion::string_from_js(info[0]);
+  if (text) {
+    Text new_text{move(*text)};
+    Text old_text{text_buffer.text()};
+    return PatchWrapper::from_patch(env, text_diff(old_text, new_text));
+  }
+
+  return env.Undefined();
 }
 
 Napi::Value TextBufferWrapper::line_for_row(const CallbackInfo &info) {

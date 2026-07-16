@@ -100,6 +100,47 @@ if (process.platform === 'win32') {
 }
 
 describe('TextBuffer', () => {
+  describe('.diff', () => {
+    it('returns a Patch representing the difference between the current and the given text', () => {
+      const buffer = new TextBuffer('cat\ndog\nelephant\nfox')
+      const patch = buffer.diff('bug\ncat\ndog\nelephant\nfox\ngoat')
+      assert.deepEqual(toPlainObject(patch.getChanges()), [
+        {
+          oldStart: {row: 0, column: 0}, oldEnd: {row: 0, column: 0},
+          newStart: {row: 0, column: 0}, newEnd: {row: 1, column: 0},
+          oldText: '',
+          newText: 'bug\n'
+        },
+        {
+          oldStart: {row: 3, column: 3}, oldEnd: {row: 3, column: 3},
+          newStart: {row: 4, column: 3}, newEnd: {row: 5, column: 4},
+          oldText: '',
+          newText: '\ngoat'
+        }
+      ])
+      assert.equal(buffer.getText(), 'cat\ndog\nelephant\nfox')
+    })
+
+    it('returns an empty patch when the given text matches the buffer', () => {
+      const buffer = new TextBuffer('cat\ndog')
+      assert.deepEqual(buffer.diff('cat\ndog').getChanges(), [])
+    })
+
+    it('diffs against the current content, including unsaved edits', () => {
+      const buffer = new TextBuffer('abc\ndef')
+      buffer.setTextInRange(Range(Point(1, 3), Point(1, 3)), 'ghi')
+      const patch = buffer.diff('abc\ndefghi\njkl')
+      assert.deepEqual(toPlainObject(patch.getChanges()), [
+        {
+          oldStart: {row: 1, column: 6}, oldEnd: {row: 1, column: 6},
+          newStart: {row: 1, column: 6}, newEnd: {row: 2, column: 3},
+          oldText: '',
+          newText: '\njkl'
+        }
+      ])
+    })
+  })
+
   describe('.load', () => {
     if (!TextBuffer.prototype.load) return;
 
