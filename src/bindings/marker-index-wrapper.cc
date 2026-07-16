@@ -36,6 +36,7 @@ void MarkerIndexWrapper::init(Napi::Env env, Object exports) {
   });
 
   data->marker_index_wrapper_constructor = Napi::Persistent(func);
+  data->set_constructor = Napi::Persistent(env.Global().Get("Set").As<Napi::Function>());
 
   exports.Set("MarkerIndex", func);
 }
@@ -60,15 +61,17 @@ Napi::Value MarkerIndexWrapper::generate_random_number(const CallbackInfo &info)
 
 Napi::Value MarkerIndexWrapper::marker_ids_set_to_js(const MarkerIndex::MarkerIdSet &marker_ids) {
   Napi::Env env = Env();
-  Napi::Function set_constructor = env.Global().Get("Set").As<Napi::Function>();
-  Napi::Object js_set = set_constructor.New({});
-  Napi::Function add = js_set.Get("add").As<Napi::Function>();
+  auto *data = env.GetInstanceData<AddonData>();
 
+  // Fill a typed array through its raw memory and construct the Set in one
+  // call; building the Set id-by-id pays an N-API round-trip per marker.
+  auto js_ids = Uint32Array::New(env, marker_ids.size());
+  uint32_t i = 0;
   for (MarkerIndex::MarkerId id : marker_ids) {
-    add.Call(js_set, {Napi::Number::New(env, id)});
+    js_ids[i++] = id;
   }
 
-  return js_set;
+  return data->set_constructor.New({js_ids});
 }
 
 Array MarkerIndexWrapper::marker_ids_vector_to_js(const std::vector<MarkerIndex::MarkerId> &marker_ids) {
@@ -169,7 +172,6 @@ Napi::Value MarkerIndexWrapper::splice(const CallbackInfo &info) {
 
     Object invalidated = Object::New(env);
     invalidated.Set("touch", marker_ids_set_to_js(result.touch));
-    invalidated.Set("inside", marker_ids_set_to_js(result.inside));
     invalidated.Set("inside", marker_ids_set_to_js(result.inside));
     invalidated.Set("overlap", marker_ids_set_to_js(result.overlap));
     invalidated.Set("surround", marker_ids_set_to_js(result.surround));

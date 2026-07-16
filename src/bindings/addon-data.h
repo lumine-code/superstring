@@ -9,6 +9,7 @@ public:
 
   // MarkerIndexWrapper
   Napi::FunctionReference marker_index_wrapper_constructor;
+  Napi::FunctionReference set_constructor;
 
   // PatchWrapper
   Napi::FunctionReference patch_wrapper_constructor;

@@ -50,7 +50,7 @@ function profileOperations (name, operations) {
 }
 
 function enqueueSequentialInsert () {
-  let id = (idCounter++).toString()
+  let id = idCounter++
   let row, startColumn, endColumn
   if (random(10) < 3) {
     row = lastInsertionEnd.row + 1 + random(3)
@@ -66,7 +66,7 @@ function enqueueSequentialInsert () {
 }
 
 function enqueueInsert () {
-  let id = (idCounter++).toString()
+  let id = idCounter++
   let range = getRange()
   let start = range[0]
   let end = range[1]
@@ -85,8 +85,8 @@ function enqueueRangeQuery() {
 }
 
 function enqueueDelete () {
-  let id = markerIds.splice(random(markerIds.length), 1)
-  deleteOperations.push(['delete', [id]])
+  let [id] = markerIds.splice(random(markerIds.length), 1)
+  deleteOperations.push(['remove', [id]])
 }
 
 function getRange () {
