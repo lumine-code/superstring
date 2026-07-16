@@ -1,8 +1,10 @@
 #include "marker-index.h"
+#include <algorithm>
 #include <climits>
 #include <iterator>
 #include <random>
 #include <stdlib.h>
+#include <unordered_set>
 #include "range.h"
 
 using std::default_random_engine;
@@ -133,7 +135,7 @@ MarkerIndex::Node *MarkerIndex::Iterator::insert_splice_boundary(const Point &po
   }
 }
 
-void MarkerIndex::Iterator::find_intersecting(const Point &start, const Point &end, MarkerIdSet *result) {
+void MarkerIndex::Iterator::find_intersecting(const Point &start, const Point &end, std::vector<MarkerId> *result) {
   reset();
 
   if (!current_node) return;
@@ -164,25 +166,25 @@ void MarkerIndex::Iterator::find_intersecting(const Point &start, const Point &e
   } while (current_node && current_node_position <= end);
 }
 
-void MarkerIndex::Iterator::find_contained_in(const Point &start, const Point &end, MarkerIdSet *result) {
+void MarkerIndex::Iterator::find_contained_in(const Point &start, const Point &end, std::vector<MarkerId> *result) {
   reset();
 
   if (!current_node) return;
 
   seek_to_first_node_greater_than_or_equal_to(start);
 
-  MarkerIdSet started;
+  std::unordered_set<MarkerId> started;
   while (current_node && current_node_position <= end) {
     started.insert(current_node->start_marker_ids.begin(), current_node->start_marker_ids.end());
     for (MarkerId id : current_node->end_marker_ids) {
-      if (started.count(id) > 0) result->insert(id);
+      if (started.count(id) > 0) result->push_back(id);
     }
     cache_node_position();
     move_to_successor();
   }
 }
 
-void MarkerIndex::Iterator::find_starting_in(const Point &start, const Point &end, MarkerIdSet *result) {
+void MarkerIndex::Iterator::find_starting_in(const Point &start, const Point &end, std::vector<MarkerId> *result) {
   reset();
 
   if (!current_node) return;
@@ -190,13 +192,13 @@ void MarkerIndex::Iterator::find_starting_in(const Point &start, const Point &en
   seek_to_first_node_greater_than_or_equal_to(start);
 
   while (current_node && current_node_position <= end) {
-    result->insert(current_node->start_marker_ids.begin(), current_node->start_marker_ids.end());
+    result->insert(result->end(), current_node->start_marker_ids.begin(), current_node->start_marker_ids.end());
     cache_node_position();
     move_to_successor();
   }
 }
 
-void MarkerIndex::Iterator::find_ending_in(const Point &start, const Point &end, MarkerIdSet *result) {
+void MarkerIndex::Iterator::find_ending_in(const Point &start, const Point &end, std::vector<MarkerId> *result) {
   reset();
 
   if (!current_node) return;
@@ -204,7 +206,7 @@ void MarkerIndex::Iterator::find_ending_in(const Point &start, const Point &end,
   seek_to_first_node_greater_than_or_equal_to(start);
 
   while (current_node && current_node_position <= end) {
-    result->insert(current_node->end_marker_ids.begin(), current_node->end_marker_ids.end());
+    result->insert(result->end(), current_node->end_marker_ids.begin(), current_node->end_marker_ids.end());
     cache_node_position();
     move_to_successor();
   }
@@ -398,18 +400,20 @@ MarkerIndex::Node *MarkerIndex::Iterator::insert_right_child(const Point &positi
   return current_node->right = new Node(current_node, position.traversal(current_node_position));
 }
 
-void MarkerIndex::Iterator::check_intersection(const Point &start, const Point &end, MarkerIdSet *result) {
+void MarkerIndex::Iterator::check_intersection(const Point &start, const Point &end, std::vector<MarkerId> *result) {
+  // Appends raw (possibly duplicated) ids; the public entry points sort and
+  // de-duplicate once at the end via the flat_set vector constructor.
   if (left_ancestor_position <= end && start <= current_node_position) {
-    result->insert(current_node->left_marker_ids.begin(), current_node->left_marker_ids.end());
+    result->insert(result->end(), current_node->left_marker_ids.begin(), current_node->left_marker_ids.end());
   }
 
   if (start <= current_node_position && current_node_position <= end) {
-    result->insert(current_node->start_marker_ids.begin(), current_node->start_marker_ids.end());
-    result->insert(current_node->end_marker_ids.begin(), current_node->end_marker_ids.end());
+    result->insert(result->end(), current_node->start_marker_ids.begin(), current_node->start_marker_ids.end());
+    result->insert(result->end(), current_node->end_marker_ids.begin(), current_node->end_marker_ids.end());
   }
 
   if (current_node_position <= end && start <= right_ancestor_position) {
-    result->insert(current_node->right_marker_ids.begin(), current_node->right_marker_ids.end());
+    result->insert(result->end(), current_node->right_marker_ids.begin(), current_node->right_marker_ids.end());
   }
 }
 
@@ -652,39 +656,41 @@ int MarkerIndex::compare(MarkerId id1, MarkerId id2) const {
 }
 
 flat_set<MarkerIndex::MarkerId> MarkerIndex::find_intersecting(Point start, Point end) {
-  MarkerIdSet result;
+  std::vector<MarkerId> result;
   iterator.find_intersecting(start, end, &result);
-  return result;
+  return MarkerIdSet{std::move(result)};
 }
 
 flat_set<MarkerIndex::MarkerId> MarkerIndex::find_containing(Point start, Point end) {
-  MarkerIdSet containing_start;
-  iterator.find_intersecting(start, start, &containing_start);
+  std::vector<MarkerId> containing_start_ids;
+  iterator.find_intersecting(start, start, &containing_start_ids);
+  MarkerIdSet containing_start{std::move(containing_start_ids)};
   if (end == start) {
     return containing_start;
   } else {
-    MarkerIdSet containing_end;
-    iterator.find_intersecting(end, end, &containing_end);
-    MarkerIdSet containing_start_and_end;
-    for (MarkerId id : containing_start) {
-      if (containing_end.count(id) > 0) {
-        containing_start_and_end.insert(id);
-      }
-    }
-    return containing_start_and_end;
+    std::vector<MarkerId> containing_end_ids;
+    iterator.find_intersecting(end, end, &containing_end_ids);
+    MarkerIdSet containing_end{std::move(containing_end_ids)};
+    std::vector<MarkerId> containing_start_and_end;
+    std::set_intersection(
+      containing_start.begin(), containing_start.end(),
+      containing_end.begin(), containing_end.end(),
+      std::back_inserter(containing_start_and_end)
+    );
+    return MarkerIdSet{std::move(containing_start_and_end)};
   }
 }
 
 flat_set<MarkerIndex::MarkerId> MarkerIndex::find_contained_in(Point start, Point end) {
-  MarkerIdSet result;
+  std::vector<MarkerId> result;
   iterator.find_contained_in(start, end, &result);
-  return result;
+  return MarkerIdSet{std::move(result)};
 }
 
 flat_set<MarkerIndex::MarkerId> MarkerIndex::find_starting_in(Point start, Point end) {
-  MarkerIdSet result;
+  std::vector<MarkerId> result;
   iterator.find_starting_in(start, end, &result);
-  return result;
+  return MarkerIdSet{std::move(result)};
 }
 
 flat_set<MarkerIndex::MarkerId> MarkerIndex::find_starting_at(Point position) {
@@ -692,9 +698,9 @@ flat_set<MarkerIndex::MarkerId> MarkerIndex::find_starting_at(Point position) {
 }
 
 flat_set<MarkerIndex::MarkerId> MarkerIndex::find_ending_in(Point start, Point end) {
-  MarkerIdSet result;
+  std::vector<MarkerId> result;
   iterator.find_ending_in(start, end, &result);
-  return result;
+  return MarkerIdSet{std::move(result)};
 }
 
 flat_set<MarkerIndex::MarkerId> MarkerIndex::find_ending_at(Point position) {

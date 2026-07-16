@@ -79,10 +79,10 @@ private:
     Node* insert_marker_start(const MarkerId &id, const Point &start_position, const Point &end_position);
     Node* insert_marker_end(const MarkerId &id, const Point &start_position, const Point &end_position);
     Node* insert_splice_boundary(const Point &position, bool is_insertion_end);
-    void find_intersecting(const Point &start, const Point &end, flat_set<MarkerId> *result);
-    void find_contained_in(const Point &start, const Point &end, flat_set<MarkerId> *result);
-    void find_starting_in(const Point &start, const Point &end, flat_set<MarkerId> *result);
-    void find_ending_in(const Point &start, const Point &end, flat_set<MarkerId> *result);
+    void find_intersecting(const Point &start, const Point &end, std::vector<MarkerId> *result);
+    void find_contained_in(const Point &start, const Point &end, std::vector<MarkerId> *result);
+    void find_starting_in(const Point &start, const Point &end, std::vector<MarkerId> *result);
+    void find_ending_in(const Point &start, const Point &end, std::vector<MarkerId> *result);
     void find_boundaries_after(Point start, size_t max_count, BoundaryQueryResult *result);
     std::unordered_map<MarkerId, Range> dump();
 
@@ -96,7 +96,7 @@ private:
     void mark_left(const MarkerId &id, const Point &start_position, const Point &end_position);
     Node* insert_left_child(const Point &position);
     Node* insert_right_child(const Point &position);
-    void check_intersection(const Point &start, const Point &end, flat_set<MarkerId> *results);
+    void check_intersection(const Point &start, const Point &end, std::vector<MarkerId> *results);
     void cache_node_position() const;
 
     MarkerIndex *marker_index;
