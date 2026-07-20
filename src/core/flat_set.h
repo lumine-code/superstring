@@ -35,6 +35,46 @@ public:
     }
   }
 
+  // Merge a sorted, unique container into this set in O(a + b) instead of
+  // O(b) memmoves. Small inputs use plain inserts to avoid allocation churn.
+  void merge(const flat_set &other) { merge_sorted(other.contents); }
+
+  void merge_sorted(const contents_type &values) {
+    if (values.empty()) return;
+    if (contents.empty()) {
+      contents = values;
+      return;
+    }
+    if (values.size() <= 8) {
+      for (T value : values) insert(value);
+      return;
+    }
+    contents_type merged;
+    merged.reserve(contents.size() + values.size());
+    std::set_union(contents.begin(), contents.end(), values.begin(), values.end(), std::back_inserter(merged));
+    contents = std::move(merged);
+  }
+
+  // Remove every element of a sorted, unique container in O(a + b).
+  void subtract_sorted(const contents_type &values) {
+    if (contents.empty() || values.empty()) return;
+    if (values.size() <= 8) {
+      for (T value : values) erase(value);
+      return;
+    }
+    contents_type remaining;
+    remaining.reserve(contents.size());
+    std::set_difference(contents.begin(), contents.end(), values.begin(), values.end(), std::back_inserter(remaining));
+    contents = std::move(remaining);
+  }
+
+  // Adopt an already-sorted, unique vector without re-sorting.
+  static flat_set from_sorted(contents_type &&values) {
+    flat_set result;
+    result.contents = std::move(values);
+    return result;
+  }
+
   iterator erase(const iterator &iter) {
     return contents.erase(iter);
   }

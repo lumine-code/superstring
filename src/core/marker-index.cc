@@ -528,62 +528,85 @@ MarkerIndex::SpliceResult MarkerIndex::splice(Point start, Point old_extent, Poi
   MarkerIdSet ending_inside_splice;
 
   if (is_insertion) {
-    for (auto iter = start_node->start_marker_ids.begin(); iter != start_node->start_marker_ids.end();) {
-      MarkerId id = *iter;
-      if (exclusive_marker_ids.count(id) > 0) {
-        iter = start_node->start_marker_ids.erase(iter);
-        start_node->right_marker_ids.erase(id);
-        end_node->start_marker_ids.insert(id);
-        start_nodes_by_id[id] = end_node;
-      } else {
-        ++iter;
+    {
+      // Exclusive markers starting here move their start to the end node.
+      std::vector<MarkerId> moved, kept;
+      for (MarkerId id : start_node->start_marker_ids) {
+        (exclusive_marker_ids.count(id) > 0 ? moved : kept).push_back(id);
+      }
+      if (!moved.empty()) {
+        start_node->start_marker_ids = MarkerIdSet::from_sorted(std::move(kept));
+        start_node->right_marker_ids.subtract_sorted(moved);
+        end_node->start_marker_ids.merge_sorted(moved);
+        for (MarkerId id : moved) start_nodes_by_id[id] = end_node;
       }
     }
-    for (auto iter = start_node->end_marker_ids.begin(); iter != start_node->end_marker_ids.end();) {
-      MarkerId id = *iter;
-      if (exclusive_marker_ids.count(id) == 0 || end_node->start_marker_ids.count(id) > 0) {
-        iter = start_node->end_marker_ids.erase(iter);
-        if (end_node->start_marker_ids.count(id) == 0) {
-          start_node->right_marker_ids.insert(id);
+    {
+      // Non-exclusive markers ending here (and exclusive ones that now start
+      // at the end node) move their end to the end node.
+      std::vector<MarkerId> moved, kept, to_right;
+      for (MarkerId id : start_node->end_marker_ids) {
+        bool starts_at_end_node = end_node->start_marker_ids.count(id) > 0;
+        if (exclusive_marker_ids.count(id) == 0 || starts_at_end_node) {
+          moved.push_back(id);
+          if (!starts_at_end_node) to_right.push_back(id);
+        } else {
+          kept.push_back(id);
         }
-        end_node->end_marker_ids.insert(id);
-        end_nodes_by_id[id] = end_node;
-      } else {
-        ++iter;
+      }
+      if (!moved.empty()) {
+        start_node->end_marker_ids = MarkerIdSet::from_sorted(std::move(kept));
+        start_node->right_marker_ids.merge_sorted(to_right);
+        end_node->end_marker_ids.merge_sorted(moved);
+        for (MarkerId id : moved) end_nodes_by_id[id] = end_node;
       }
     }
   } else {
-    get_starting_and_ending_markers_within_subtree(start_node->right, &starting_inside_splice, &ending_inside_splice);
+    {
+      std::vector<MarkerId> starting_ids, ending_ids;
+      get_starting_and_ending_markers_within_subtree(start_node->right, &starting_ids, &ending_ids);
+      starting_inside_splice = MarkerIdSet{std::move(starting_ids)};
+      ending_inside_splice = MarkerIdSet{std::move(ending_ids)};
+    }
 
-    for (MarkerId id : ending_inside_splice) {
-      end_node->end_marker_ids.insert(id);
-      if (!starting_inside_splice.count(id)) {
-        start_node->right_marker_ids.insert(id);
+    end_node->end_marker_ids.merge(ending_inside_splice);
+    {
+      std::vector<MarkerId> ending_only;
+      std::set_difference(
+        ending_inside_splice.begin(), ending_inside_splice.end(),
+        starting_inside_splice.begin(), starting_inside_splice.end(),
+        std::back_inserter(ending_only));
+      start_node->right_marker_ids.merge_sorted(ending_only);
+    }
+    for (MarkerId id : ending_inside_splice) end_nodes_by_id[id] = end_node;
+
+    // Must read `end_node->start_marker_ids` before the merge below extends it.
+    {
+      std::vector<MarkerId> exclusive_endings;
+      for (MarkerId id : end_node->end_marker_ids) {
+        if (exclusive_marker_ids.count(id) && !end_node->start_marker_ids.count(id)) {
+          exclusive_endings.push_back(id);
+        }
       }
-      end_nodes_by_id[id] = end_node;
+      ending_inside_splice.merge_sorted(exclusive_endings);
     }
 
-    for (MarkerId id : end_node->end_marker_ids) {
-      if (exclusive_marker_ids.count(id) && !end_node->start_marker_ids.count(id)) {
-        ending_inside_splice.insert(id);
+    end_node->start_marker_ids.merge(starting_inside_splice);
+    for (MarkerId id : starting_inside_splice) start_nodes_by_id[id] = end_node;
+
+    {
+      // Exclusive markers starting at the splice start move to the end node.
+      std::vector<MarkerId> moved, kept;
+      for (MarkerId id : start_node->start_marker_ids) {
+        bool is_moved = exclusive_marker_ids.count(id) && !start_node->end_marker_ids.count(id);
+        (is_moved ? moved : kept).push_back(id);
       }
-    }
-
-    for (MarkerId id : starting_inside_splice) {
-      end_node->start_marker_ids.insert(id);
-      start_nodes_by_id[id] = end_node;
-    }
-
-    for (auto iter = start_node->start_marker_ids.begin(); iter != start_node->start_marker_ids.end();) {
-      MarkerId id = *iter;
-      if (exclusive_marker_ids.count(id) && !start_node->end_marker_ids.count(id)) {
-        iter = start_node->start_marker_ids.erase(iter);
-        start_node->right_marker_ids.erase(id);
-        end_node->start_marker_ids.insert(id);
-        start_nodes_by_id[id] = end_node;
-        starting_inside_splice.insert(id);
-      } else {
-        ++iter;
+      if (!moved.empty()) {
+        start_node->start_marker_ids = MarkerIdSet::from_sorted(std::move(kept));
+        start_node->right_marker_ids.subtract_sorted(moved);
+        end_node->start_marker_ids.merge_sorted(moved);
+        for (MarkerId id : moved) start_nodes_by_id[id] = end_node;
+        starting_inside_splice.merge_sorted(moved);
       }
     }
   }
@@ -598,19 +621,20 @@ MarkerIndex::SpliceResult MarkerIndex::splice(Point start, Point old_extent, Poi
   end_node->left_extent = start.traverse(new_extent);
 
   if (start_node->left_extent == end_node->left_extent) {
-    for (MarkerId id : end_node->start_marker_ids) {
-      start_node->start_marker_ids.insert(id);
-      start_node->right_marker_ids.insert(id);
-      start_nodes_by_id[id] = start_node;
-    }
+    start_node->start_marker_ids.merge(end_node->start_marker_ids);
+    start_node->right_marker_ids.merge(end_node->start_marker_ids);
+    for (MarkerId id : end_node->start_marker_ids) start_nodes_by_id[id] = start_node;
 
-    for (MarkerId id : end_node->end_marker_ids) {
-      start_node->end_marker_ids.insert(id);
-      if (end_node->left_marker_ids.count(id) > 0) {
-        start_node->left_marker_ids.insert(id);
-        end_node->left_marker_ids.erase(id);
-      }
-      end_nodes_by_id[id] = start_node;
+    {
+      std::vector<MarkerId> left_moved;
+      std::set_intersection(
+        end_node->end_marker_ids.begin(), end_node->end_marker_ids.end(),
+        end_node->left_marker_ids.begin(), end_node->left_marker_ids.end(),
+        std::back_inserter(left_moved));
+      start_node->end_marker_ids.merge(end_node->end_marker_ids);
+      start_node->left_marker_ids.merge_sorted(left_moved);
+      end_node->left_marker_ids.subtract_sorted(left_moved);
+      for (MarkerId id : end_node->end_marker_ids) end_nodes_by_id[id] = start_node;
     }
     delete_node(end_node);
   } else if (end_node->is_marker_endpoint()) {
@@ -813,16 +837,33 @@ void MarkerIndex::rotate_node_left(Node *rotation_pivot) {
 
   rotation_pivot->left_extent = rotation_root->left_extent.traverse(rotation_pivot->left_extent);
 
-  rotation_pivot->right_marker_ids.insert(rotation_root->right_marker_ids.begin(), rotation_root->right_marker_ids.end());
+  rotation_pivot->right_marker_ids.merge(rotation_root->right_marker_ids);
 
-  for (auto it = rotation_pivot->left_marker_ids.begin(); it != rotation_pivot->left_marker_ids.end();) {
-    if (rotation_root->left_marker_ids.count(*it)) {
-      rotation_root->left_marker_ids.erase(*it);
-      ++it;
-    } else {
-      rotation_root->right_marker_ids.insert(*it);
-      it = rotation_pivot->left_marker_ids.erase(it);
+  if (rotation_pivot->left_marker_ids.size() <= 8) {
+    for (auto it = rotation_pivot->left_marker_ids.begin(); it != rotation_pivot->left_marker_ids.end();) {
+      if (rotation_root->left_marker_ids.count(*it)) {
+        rotation_root->left_marker_ids.erase(*it);
+        ++it;
+      } else {
+        rotation_root->right_marker_ids.insert(*it);
+        it = rotation_pivot->left_marker_ids.erase(it);
+      }
     }
+  } else {
+    // Ids shared with the root's left set stay put (and leave the root's);
+    // the rest move from the pivot's left set to the root's right set.
+    std::vector<MarkerId> common, moved;
+    std::set_intersection(
+      rotation_pivot->left_marker_ids.begin(), rotation_pivot->left_marker_ids.end(),
+      rotation_root->left_marker_ids.begin(), rotation_root->left_marker_ids.end(),
+      std::back_inserter(common));
+    std::set_difference(
+      rotation_pivot->left_marker_ids.begin(), rotation_pivot->left_marker_ids.end(),
+      rotation_root->left_marker_ids.begin(), rotation_root->left_marker_ids.end(),
+      std::back_inserter(moved));
+    rotation_root->left_marker_ids.subtract_sorted(common);
+    rotation_root->right_marker_ids.merge_sorted(moved);
+    rotation_pivot->left_marker_ids = MarkerIdSet::from_sorted(std::move(common));
   }
 }
 
@@ -850,58 +891,90 @@ void MarkerIndex::rotate_node_right(Node *rotation_pivot) {
 
   rotation_root->left_extent = rotation_root->left_extent.traversal(rotation_pivot->left_extent);
 
-  for (auto it = rotation_root->left_marker_ids.begin(); it != rotation_root->left_marker_ids.end(); ++it) {
-    if (!rotation_pivot->start_marker_ids.count(*it)) {
-      rotation_pivot->left_marker_ids.insert(*it);
+  if (rotation_root->left_marker_ids.size() <= 8) {
+    for (auto it = rotation_root->left_marker_ids.begin(); it != rotation_root->left_marker_ids.end(); ++it) {
+      if (!rotation_pivot->start_marker_ids.count(*it)) {
+        rotation_pivot->left_marker_ids.insert(*it);
+      }
     }
+  } else {
+    std::vector<MarkerId> from_root_left;
+    std::set_difference(
+      rotation_root->left_marker_ids.begin(), rotation_root->left_marker_ids.end(),
+      rotation_pivot->start_marker_ids.begin(), rotation_pivot->start_marker_ids.end(),
+      std::back_inserter(from_root_left));
+    rotation_pivot->left_marker_ids.merge_sorted(from_root_left);
   }
 
-  for (auto it = rotation_pivot->right_marker_ids.begin(); it != rotation_pivot->right_marker_ids.end();) {
-    if (rotation_root->right_marker_ids.count(*it)) {
-      rotation_root->right_marker_ids.erase(*it);
-      ++it;
-    } else {
-      rotation_root->left_marker_ids.insert(*it);
-      it = rotation_pivot->right_marker_ids.erase(it);
+  if (rotation_pivot->right_marker_ids.size() <= 8) {
+    for (auto it = rotation_pivot->right_marker_ids.begin(); it != rotation_pivot->right_marker_ids.end();) {
+      if (rotation_root->right_marker_ids.count(*it)) {
+        rotation_root->right_marker_ids.erase(*it);
+        ++it;
+      } else {
+        rotation_root->left_marker_ids.insert(*it);
+        it = rotation_pivot->right_marker_ids.erase(it);
+      }
     }
+  } else {
+    // Ids shared with the root's right set stay put (and leave the root's);
+    // the rest move from the pivot's right set to the root's left set.
+    std::vector<MarkerId> common, moved;
+    std::set_intersection(
+      rotation_pivot->right_marker_ids.begin(), rotation_pivot->right_marker_ids.end(),
+      rotation_root->right_marker_ids.begin(), rotation_root->right_marker_ids.end(),
+      std::back_inserter(common));
+    std::set_difference(
+      rotation_pivot->right_marker_ids.begin(), rotation_pivot->right_marker_ids.end(),
+      rotation_root->right_marker_ids.begin(), rotation_root->right_marker_ids.end(),
+      std::back_inserter(moved));
+    rotation_root->right_marker_ids.subtract_sorted(common);
+    rotation_root->left_marker_ids.merge_sorted(moved);
+    rotation_pivot->right_marker_ids = MarkerIdSet::from_sorted(std::move(common));
   }
 }
 
-void MarkerIndex::get_starting_and_ending_markers_within_subtree(const Node *node, MarkerIdSet *starting, MarkerIdSet *ending) {
+void MarkerIndex::get_starting_and_ending_markers_within_subtree(const Node *node, std::vector<MarkerId> *starting, std::vector<MarkerId> *ending) {
   if (node == nullptr) {
     return;
   }
 
   get_starting_and_ending_markers_within_subtree(node->left, starting, ending);
-  starting->insert(node->start_marker_ids.begin(), node->start_marker_ids.end());
-  ending->insert(node->end_marker_ids.begin(), node->end_marker_ids.end());
+  starting->insert(starting->end(), node->start_marker_ids.begin(), node->start_marker_ids.end());
+  ending->insert(ending->end(), node->end_marker_ids.begin(), node->end_marker_ids.end());
   get_starting_and_ending_markers_within_subtree(node->right, starting, ending);
 }
 
 void MarkerIndex::populate_splice_invalidation_sets(SpliceResult *invalidated, const Node *start_node, const Node *end_node, const MarkerIdSet &starting_inside_splice, const MarkerIdSet &ending_inside_splice) {
-  invalidated->touch.insert(start_node->end_marker_ids.begin(), start_node->end_marker_ids.end());
-  invalidated->touch.insert(end_node->start_marker_ids.begin(), end_node->start_marker_ids.end());
+  auto append = [](std::vector<MarkerId> &target, const MarkerIdSet &source) {
+    target.insert(target.end(), source.begin(), source.end());
+  };
 
-  for (MarkerId id : start_node->right_marker_ids) {
-    invalidated->touch.insert(id);
-    invalidated->inside.insert(id);
-  }
+  std::vector<MarkerId> touch;
+  append(touch, start_node->end_marker_ids);
+  append(touch, end_node->start_marker_ids);
+  append(touch, start_node->right_marker_ids);
+  append(touch, end_node->left_marker_ids);
+  append(touch, starting_inside_splice);
+  append(touch, ending_inside_splice);
+  invalidated->touch = MarkerIdSet{std::move(touch)};
 
-  for (MarkerId id : end_node->left_marker_ids) {
-    invalidated->touch.insert(id);
-    invalidated->inside.insert(id);
-  }
+  std::vector<MarkerId> inside;
+  append(inside, start_node->right_marker_ids);
+  append(inside, end_node->left_marker_ids);
+  append(inside, starting_inside_splice);
+  append(inside, ending_inside_splice);
+  invalidated->inside = MarkerIdSet{std::move(inside)};
 
-  for (MarkerId id : starting_inside_splice) {
-    invalidated->touch.insert(id);
-    invalidated->inside.insert(id);
-    invalidated->overlap.insert(id);
-    if (ending_inside_splice.count(id)) invalidated->surround.insert(id);
-  }
+  std::vector<MarkerId> overlap;
+  append(overlap, starting_inside_splice);
+  append(overlap, ending_inside_splice);
+  invalidated->overlap = MarkerIdSet{std::move(overlap)};
 
-  for (MarkerId id : ending_inside_splice) {
-    invalidated->touch.insert(id);
-    invalidated->inside.insert(id);
-    invalidated->overlap.insert(id);
-  }
+  std::vector<MarkerId> surround;
+  std::set_intersection(
+    starting_inside_splice.begin(), starting_inside_splice.end(),
+    ending_inside_splice.begin(), ending_inside_splice.end(),
+    std::back_inserter(surround));
+  invalidated->surround = MarkerIdSet::from_sorted(std::move(surround));
 }

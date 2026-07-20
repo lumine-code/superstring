@@ -121,7 +121,7 @@ private:
   void bubble_node_down(Node *node);
   void rotate_node_left(Node *pivot);
   void rotate_node_right(Node *pivot);
-  void get_starting_and_ending_markers_within_subtree(const Node *node, flat_set<MarkerId> *starting, flat_set<MarkerId> *ending);
+  void get_starting_and_ending_markers_within_subtree(const Node *node, std::vector<MarkerId> *starting, std::vector<MarkerId> *ending);
   void populate_splice_invalidation_sets(SpliceResult *invalidated, const Node *start_node, const Node *end_node, const flat_set<MarkerId> &starting_inside_splice, const flat_set<MarkerId> &ending_inside_splice);
 
   std::default_random_engine random_engine;
