@@ -68,6 +68,12 @@ private:
     flat_set<MarkerId> end_marker_ids;
     int priority;
 
+    // Absolute-position cache, valid while `cached_position_version` matches
+    // the index's current version. Fresh nodes start at 0, which is always
+    // stale because the index version starts at 1.
+    mutable Point cached_position;
+    mutable uint64_t cached_position_version;
+
     Node(Node *parent, Point left_extent);
     bool is_marker_endpoint();
   };
@@ -126,11 +132,9 @@ private:
   Iterator iterator;
   flat_set<MarkerId> exclusive_marker_ids;
 
-  // Positions are stamped with the version current at insertion; a splice
-  // bumps the version, turning every older entry into a miss without paying
-  // for a full clear. Stale entries for freed nodes are therefore harmless.
-  mutable std::unordered_map<const Node*, std::pair<Point, uint64_t>> node_position_cache;
-  uint64_t node_position_cache_version = 0;
+  // Node position caches are stamped with the version current at insertion; a
+  // splice bumps the version, turning every node's cache stale in O(1).
+  uint64_t node_position_cache_version = 1;
 };
 
 #endif // MARKER_INDEX_H_

@@ -15,7 +15,8 @@ MarkerIndex::Node::Node(Node *parent, Point left_extent) :
   left{nullptr},
   right{nullptr},
   left_extent{left_extent},
-  priority{0} {}
+  priority{0},
+  cached_position_version{0} {}
 
 bool MarkerIndex::Node::is_marker_endpoint() {
   return (start_marker_ids.size() + end_marker_ids.size()) > 0;
@@ -418,8 +419,9 @@ void MarkerIndex::Iterator::check_intersection(const Point &start, const Point &
 }
 
 void MarkerIndex::Iterator::cache_node_position() const {
-  marker_index->node_position_cache[current_node] =
-    {current_node_position, marker_index->node_position_cache_version};
+  if (!current_node) return;
+  current_node->cached_position = current_node_position;
+  current_node->cached_position_version = marker_index->node_position_cache_version;
 }
 
 MarkerIndex::MarkerIndex(unsigned seed)
@@ -440,8 +442,10 @@ void MarkerIndex::insert(MarkerId id, Point start, Point end) {
   Node *start_node = iterator.insert_marker_start(id, start, end);
   Node *end_node = iterator.insert_marker_end(id, start, end);
 
-  node_position_cache[start_node] = {start, node_position_cache_version};
-  node_position_cache[end_node] = {end, node_position_cache_version};
+  start_node->cached_position = start;
+  start_node->cached_position_version = node_position_cache_version;
+  end_node->cached_position = end;
+  end_node->cached_position_version = node_position_cache_version;
 
   start_node->start_marker_ids.insert(id);
   end_node->end_marker_ids.insert(id);
@@ -504,12 +508,8 @@ bool MarkerIndex::has(MarkerId id) {
 }
 
 MarkerIndex::SpliceResult MarkerIndex::splice(Point start, Point old_extent, Point new_extent) {
-  // Invalidate every cached position in O(1). Truly clear only when stale
-  // entries have made the table much larger than the live marker count.
+  // Invalidate every node's cached position in O(1).
   node_position_cache_version++;
-  if (node_position_cache.size() > 4 * start_nodes_by_id.size() + 64) {
-    node_position_cache.clear();
-  }
 
   SpliceResult invalidated;
 
@@ -724,9 +724,7 @@ unordered_map<MarkerIndex::MarkerId, Range> MarkerIndex::dump() {
 }
 
 Point MarkerIndex::get_node_position(const Node *node) const {
-  auto cache_entry = node_position_cache.find(node);
-  if (cache_entry == node_position_cache.end() ||
-      cache_entry->second.second != node_position_cache_version) {
+  if (node->cached_position_version != node_position_cache_version) {
     Point position = node->left_extent;
     const Node *current_node = node;
     while (current_node->parent) {
@@ -736,15 +734,13 @@ Point MarkerIndex::get_node_position(const Node *node) const {
 
       current_node = current_node->parent;
     }
-    node_position_cache[node] = {position, node_position_cache_version};
-    return position;
-  } else {
-    return cache_entry->second.first;
+    node->cached_position = position;
+    node->cached_position_version = node_position_cache_version;
   }
+  return node->cached_position;
 }
 
 void MarkerIndex::delete_node(Node *node) {
-  node_position_cache.erase(node);
   node->priority = INT_MAX;
 
   bubble_node_down(node);
