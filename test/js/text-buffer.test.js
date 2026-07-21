@@ -346,6 +346,28 @@ describe('TextBuffer', () => {
       })
     })
 
+    it('promotes the saved state to the new base after setText', () => {
+      // Regression test: setText materializes its text on a non-base layer,
+      // and saving used to skip promoting that layer to base, leaving the
+      // buffer permanently reporting itself as modified with a stale base
+      // digest.
+      const buffer = new TextBuffer('abc')
+      const {path: filePath} = temp.openSync()
+
+      buffer.setText('defghi')
+      assert.ok(buffer.isModified())
+      const digestBeforeSave = buffer.baseTextDigest()
+
+      return buffer.save(filePath).then(() => {
+        assert.equal(fs.readFileSync(filePath, 'utf8'), 'defghi')
+        assert.notOk(buffer.isModified())
+        assert.notEqual(buffer.baseTextDigest(), digestBeforeSave)
+
+        buffer.setTextInRange(Range(Point(0, 6), Point(0, 6)), '!')
+        assert.ok(buffer.isModified())
+      })
+    })
+
     describe('when the `force` option is set to true', () => {
       it('discards any modifications and incorporates that change into the resolved patch', () => {
         const buffer = new TextBuffer('abcdef')

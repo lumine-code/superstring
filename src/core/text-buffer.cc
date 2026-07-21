@@ -1096,9 +1096,17 @@ TextBuffer::Snapshot::Snapshot(TextBuffer &buffer, TextBuffer::Layer &layer,
   : buffer{buffer}, layer{layer}, base_layer{base_layer} {}
 
 void TextBuffer::Snapshot::flush_preceding_changes() {
-  if (!layer.text) {
-    layer.text = Text{text()};
-    if (layer.is_above_layer(buffer.base_layer)) buffer.base_layer = &layer;
+  // Key off layer identity rather than the presence of `layer.text`:
+  // `set_text` materializes `text` on a non-base layer, and saving a snapshot
+  // of such a layer must still promote it to the new base (saved) state.
+  // Guarding on `text` alone left the old base in place after
+  // set_text-then-save, so the buffer kept reporting itself modified and the
+  // stale base digest made the file watcher treat the save as an external
+  // change.
+  bool promote_to_base = layer.is_above_layer(buffer.base_layer);
+  if (!layer.text || promote_to_base) {
+    if (!layer.text) layer.text = Text{text()};
+    if (promote_to_base) buffer.base_layer = &layer;
     buffer.consolidate_layers();
   }
 }
