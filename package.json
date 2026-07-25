@@ -18,8 +18,12 @@
   },
   "repository": "https://github.com/lumine-code/superstring",
   "keywords": [
-    "text",
-    "data-structure"
+    "text-buffer",
+    "buffer",
+    "patch",
+    "marker",
+    "native",
+    "text"
   ],
   "engines": {
     "node": ">=20"
