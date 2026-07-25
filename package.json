@@ -2,7 +2,7 @@
   "name": "@lumine-code/superstring",
   "author": "lumine-code",
   "version": "4.0.0",
-  "description": "Provides native text patches, marker indexing, and text storage for Lumine.",
+  "description": "Provides native text patches, marker indexing, and text storage.",
   "main": "./index",
   "browser": "./browser",
   "scripts": {

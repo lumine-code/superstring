@@ -1,6 +1,6 @@
-# @lumine-code/superstring
+# superstring
 
-Provides native text patches, marker indexing, and text storage for Lumine.
+Provides native text patches, marker indexing, and text storage.
 
 ## Features
 
