@@ -21,9 +21,17 @@
                 "src/core",
                 "<!(node -p \"require('node-addon-api').include_dir\")",
             ],
+            # An AsyncWorker that completes while the environment is tearing
+            # down (window reload, app quit) cannot call back into JS. Without
+            # NODE_API_SWALLOW_UNTHROWABLE_EXCEPTIONS node-addon-api escalates
+            # that to napi_fatal_error and aborts the process. The graceful path
+            # also requires NAPI_VERSION >= 10, since below 10 it expects
+            # napi_pending_exception instead of napi_cannot_run_js and never
+            # matches. napi_build_version is 10 on Node 22+ and Electron 43.
             "defines": [
                 "NAPI_VERSION=<(napi_build_version)",
                 "NAPI_DISABLE_CPP_EXCEPTIONS",
+                "NODE_API_SWALLOW_UNTHROWABLE_EXCEPTIONS",
             ],
             "conditions": [
                 ['OS=="mac"', {
