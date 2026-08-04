@@ -95,7 +95,7 @@ fi
 #
 # NOTE: macOS complains about this action invalidating the library's code
 # signature. This has not been observed to have any negative effects for
-# Pulsar, possibly because we sign and notarize the entire app at a later stage
+# Lumine, possibly because we sign and notarize the entire app at a later stage
 # of the build process. But if it _did_ have negative effects, we could switch
 # to a different approach and skip this step. See the `binding.gyp` file for
 # further details.
