@@ -29,5 +29,8 @@ jobs:
         with:
           languages: javascript-typescript, cpp
       - run: npm ci
-      - run: npm run standard
+      # cpp analysis only sees code it watches being compiled, so build the
+      # addon between init and analyze rather than relying on npm ci, which
+      # skips the rebuild whenever a usable binding is already present.
+      - run: npm run build:node
       - uses: github/codeql-action/analyze@v4
