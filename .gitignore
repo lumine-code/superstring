@@ -9,6 +9,6 @@ emsdk-portable
 
 vendor/libiconv
 .vscode
-.atom
+.lumine
 .cache
 /bin/

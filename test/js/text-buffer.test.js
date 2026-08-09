@@ -1522,9 +1522,9 @@ describe('TextBuffer', () => {
     it('handles multiple calls to .load at a time', () => {
       const buffer = new TextBuffer('abc')
 
-      const emptyFilePath = temp.openSync('atom').path
-      const smallFilePath = temp.openSync('atom').path
-      const largeFilePath = temp.openSync('atom').path
+      const emptyFilePath = temp.openSync('lumine').path
+      const smallFilePath = temp.openSync('lumine').path
+      const largeFilePath = temp.openSync('lumine').path
       const smallContent = '123456789\n'.repeat(1024)
       const largeContent = smallContent.repeat(10)
       fs.writeFileSync(smallFilePath, smallContent)
