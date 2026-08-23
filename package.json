@@ -36,7 +36,7 @@
   "homepage": "https://github.com/lumine-code/superstring",
   "devDependencies": {
     "cross-env": "^10.1.0",
-    "jasmine": "^6.3.0",
+    "jasmine": "^7.0.0",
     "random-seed": "^0.3.0",
     "unzipper": "^0.12.5"
   },
