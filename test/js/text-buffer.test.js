@@ -468,13 +468,9 @@ describe('TextBuffer', () => {
         const tempDir = temp.mkdirSync()
         const filePath = path.join(tempDir, 'one')
         const otherPath = path.join(tempDir, 'two')
-        try {
-          fs.symlinkSync(filePath, otherPath)
-          fs.symlinkSync(otherPath, filePath)
-        } catch (error) {
-          if (isWindows && error.code === 'EPERM') return this.skip()
-          throw error
-        }
+        const symlinkType = isWindows ? 'junction' : undefined
+        fs.symlinkSync(filePath, otherPath, symlinkType)
+        fs.symlinkSync(otherPath, filePath, symlinkType)
 
         const buffer = new TextBuffer()
         return buffer.load(filePath)
@@ -708,13 +704,9 @@ describe('TextBuffer', () => {
         const tempDir = temp.mkdirSync()
         const filePath = path.join(tempDir, 'one')
         const otherPath = path.join(tempDir, 'two')
-        try {
-          fs.symlinkSync(filePath, otherPath)
-          fs.symlinkSync(otherPath, filePath)
-        } catch (error) {
-          if (isWindows && error.code === 'EPERM') return this.skip()
-          throw error
-        }
+        const symlinkType = isWindows ? 'junction' : undefined
+        fs.symlinkSync(filePath, otherPath, symlinkType)
+        fs.symlinkSync(otherPath, filePath, symlinkType)
 
         const buffer = new TextBuffer()
 
@@ -724,7 +716,7 @@ describe('TextBuffer', () => {
         return buffer.save(filePath)
           .then(() => { throw new Error('Expected an error') }, (error) => {
             assert.include(error.message, ' open ')
-            assert.equal(error.code, isWindows ? 'EINVAL' : 'ELOOP')
+            assert.equal(error.code, isWindows ? 'EACCES' : 'ELOOP')
             assert.equal(error.path, filePath)
             assert.ok(buffer.isModified())
           })
