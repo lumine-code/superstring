@@ -9,6 +9,109 @@ const {
 const {Patch} = require('../..')
 
 describe('Patch', function () {
+  describe('#spliceMany', () => {
+    it('applies packed geometry splices in order', () => {
+      for (const mergeAdjacentChanges of [false, true]) {
+        const splices = [
+          [{row: 0, column: 10}, {row: 0, column: 0}, {row: 1, column: 5}],
+          [{row: 1, column: 5}, {row: 0, column: 2}, {row: 0, column: 8}],
+          [{row: 2, column: 4}, {row: 0, column: 0}, {row: 1, column: 0}],
+          [{row: 3, column: 1}, {row: 2, column: 3}, {row: 0, column: 1}]
+        ]
+        const sequentialPatch = new Patch({mergeAdjacentChanges})
+        const batchedPatch = new Patch({mergeAdjacentChanges})
+
+        for (const splice of splices) sequentialPatch.splice(...splice)
+        batchedPatch.spliceMany(packSplices(splices))
+
+        assert.deepEqual(
+          JSON.parse(JSON.stringify(batchedPatch.getChanges())),
+          JSON.parse(JSON.stringify(sequentialPatch.getChanges()))
+        )
+        assert.deepEqual(batchedPatch.serialize(), sequentialPatch.serialize())
+      }
+    })
+
+    it('reads a Uint32Array view at its byte offset', () => {
+      const splices = [
+        [{row: 0, column: 4}, {row: 0, column: 0}, {row: 1, column: 2}],
+        [{row: 1, column: 6}, {row: 0, column: 0}, {row: 1, column: 3}]
+      ]
+      const packed = packSplices(splices)
+      const storage = new Uint32Array(packed.length + 12)
+      storage.set(packed, 6)
+      const patch = new Patch({mergeAdjacentChanges: false})
+      patch.spliceMany(storage.subarray(6, 6 + packed.length))
+
+      const sequentialPatch = new Patch({mergeAdjacentChanges: false})
+      for (const splice of splices) sequentialPatch.splice(...splice)
+      assert.deepEqual(
+        JSON.parse(JSON.stringify(patch.getChanges())),
+        JSON.parse(JSON.stringify(sequentialPatch.getChanges()))
+      )
+    })
+
+    it('matches sequential splices for randomized edits', () => {
+      const document = new TestDocument('splice-many', 20)
+      const sequentialPatch = new Patch({mergeAdjacentChanges: false})
+      const splices = []
+
+      for (let i = 0; i < 100; i++) {
+        const {start, deletedExtent, insertedExtent} = document.performRandomSplice(true)
+        const splice = [start, deletedExtent, insertedExtent]
+        splices.push(splice)
+        sequentialPatch.splice(...splice)
+      }
+
+      const batchedPatch = new Patch({mergeAdjacentChanges: false})
+      batchedPatch.spliceMany(packSplices(splices))
+      assert.deepEqual(
+        JSON.parse(JSON.stringify(batchedPatch.getChanges())),
+        JSON.parse(JSON.stringify(sequentialPatch.getChanges()))
+      )
+      assert.deepEqual(batchedPatch.serialize(), sequentialPatch.serialize())
+    })
+
+    it('accepts an empty batch', () => {
+      const patch = new Patch()
+      patch.spliceMany(new Uint32Array())
+      assert.equal(patch.getChangeCount(), 0)
+    })
+
+    it('uses UINT32_MAX as the infinite point component', () => {
+      const sequentialPatch = new Patch({mergeAdjacentChanges: false})
+      sequentialPatch.splice(
+        {row: 0, column: 5},
+        {row: 0, column: 0},
+        {row: 1, column: Infinity}
+      )
+      const batchedPatch = new Patch({mergeAdjacentChanges: false})
+      batchedPatch.spliceMany(new Uint32Array([0, 5, 0, 0, 1, 0xffffffff]))
+
+      assert.deepEqual(
+        JSON.parse(JSON.stringify(batchedPatch.getChanges())),
+        JSON.parse(JSON.stringify(sequentialPatch.getChanges()))
+      )
+    })
+
+    it('validates the typed array before changing the patch', () => {
+      const patch = new Patch({mergeAdjacentChanges: false})
+      patch.splice({row: 0, column: 3}, {row: 0, column: 0}, {row: 1, column: 0})
+      const originalChanges = JSON.parse(JSON.stringify(patch.getChanges()))
+
+      assert.throws(() => patch.spliceMany(), 'Patch.spliceMany expects a Uint32Array')
+      assert.throws(
+        () => patch.spliceMany(new Float64Array(6)),
+        'Patch.spliceMany expects a Uint32Array'
+      )
+      assert.throws(
+        () => patch.spliceMany(new Uint32Array(7)),
+        'Patch.spliceMany expects a Uint32Array whose length is a multiple of 6'
+      )
+      assert.deepEqual(JSON.parse(JSON.stringify(patch.getChanges())), originalChanges)
+    })
+  })
+
   it('honors the mergeAdjacentChanges option set to false', function () {
     const patch = new Patch({mergeAdjacentChanges: false})
 
@@ -392,6 +495,20 @@ describe('Patch', function () {
 
 function last (array) {
   return array[array.length - 1]
+}
+
+function packSplices (splices) {
+  const packed = new Uint32Array(splices.length * 6)
+  let index = 0
+  for (const [start, deletionExtent, insertionExtent] of splices) {
+    packed[index++] = start.row
+    packed[index++] = start.column
+    packed[index++] = deletionExtent.row
+    packed[index++] = deletionExtent.column
+    packed[index++] = insertionExtent.row
+    packed[index++] = insertionExtent.column
+  }
+  return packed
 }
 
 function translateSpliceFromOriginalDocument (originalDocument, patch, originalSplice) {

@@ -45,6 +45,10 @@ assert.deepEqual(patch.getChanges(), [
 ])
 ```
 
+#### `spliceMany(splices)`
+
+Applies geometry-only splices in order from a packed `Uint32Array`, using six values per splice: start row, start column, deleted extent row, deleted extent column, inserted extent row, and inserted extent column. Components equal to `0xffffffff` represent an infinite row or column. This method does not accept deleted or inserted text.
+
 ### MarkerIndex
 
 This data structure is used to track logical locations in a text buffer as the contents of the buffer are changed.

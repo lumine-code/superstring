@@ -13,6 +13,9 @@ using std::vector;
 using std::u16string;
 
 static const char *InvalidSpliceMessage = "Patch does not apply";
+static const char *InvalidSpliceManyTypeMessage = "Patch.spliceMany expects a Uint32Array";
+static const char *InvalidSpliceManyLengthMessage =
+  "Patch.spliceMany expects a Uint32Array whose length is a multiple of 6";
 
 class ChangeWrapper : public ObjectWrap<ChangeWrapper> {
  public:
@@ -69,6 +72,7 @@ void PatchWrapper::init(Napi::Env env, Object exports) {
     StaticMethod<&PatchWrapper::deserialize>("deserialize"),
     StaticMethod<&PatchWrapper::compose>("compose"),
     InstanceMethod<&PatchWrapper::splice>("splice"),
+    InstanceMethod<&PatchWrapper::splice_many>("spliceMany"),
     InstanceMethod<&PatchWrapper::splice_old>("spliceOld"),
     InstanceMethod<&PatchWrapper::copy>("copy"),
     InstanceMethod<&PatchWrapper::invert>("invert"),
@@ -151,6 +155,39 @@ void PatchWrapper::splice(const CallbackInfo &info) {
       move(inserted_text)
     )) {
       Error::New(Env(), InvalidSpliceMessage).ThrowAsJavaScriptException();
+    }
+  }
+}
+
+void PatchWrapper::splice_many(const CallbackInfo &info) {
+  Napi::Env env = info.Env();
+  if (info.Length() == 0 || !info[0].IsTypedArray()) {
+    TypeError::New(env, InvalidSpliceManyTypeMessage).ThrowAsJavaScriptException();
+    return;
+  }
+
+  TypedArray js_splices = info[0].As<TypedArray>();
+  if (js_splices.TypedArrayType() != napi_uint32_array) {
+    TypeError::New(env, InvalidSpliceManyTypeMessage).ThrowAsJavaScriptException();
+    return;
+  }
+
+  Uint32Array splices = info[0].As<Uint32Array>();
+  size_t length = splices.ElementLength();
+  if (length % 6 != 0) {
+    TypeError::New(env, InvalidSpliceManyLengthMessage).ThrowAsJavaScriptException();
+    return;
+  }
+
+  const uint32_t *values = splices.Data();
+  for (size_t i = 0; i < length; i += 6) {
+    if (!patch.splice(
+      Point(values[i], values[i + 1]),
+      Point(values[i + 2], values[i + 3]),
+      Point(values[i + 4], values[i + 5])
+    )) {
+      Error::New(env, InvalidSpliceMessage).ThrowAsJavaScriptException();
+      return;
     }
   }
 }

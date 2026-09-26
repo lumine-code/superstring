@@ -113,6 +113,30 @@ if (process.env.SUPERSTRING_USE_BROWSER_VERSION) {
       throw new Error('Patch does not apply')
     }
   }, splice)
+
+  Patch.prototype.spliceMany = function (splices) {
+    if (Object.prototype.toString.call(splices) !== '[object Uint32Array]') {
+      throw new TypeError('Patch.spliceMany expects a Uint32Array')
+    }
+    if (splices.length % 6 !== 0) {
+      throw new TypeError('Patch.spliceMany expects a Uint32Array whose length is a multiple of 6')
+    }
+
+    const start = {row: 0, column: 0}
+    const deletionExtent = {row: 0, column: 0}
+    const insertionExtent = {row: 0, column: 0}
+    for (let i = 0; i < splices.length; i += 6) {
+      start.row = splices[i]
+      start.column = splices[i + 1]
+      deletionExtent.row = splices[i + 2]
+      deletionExtent.column = splices[i + 3]
+      insertionExtent.row = splices[i + 4]
+      insertionExtent.column = splices[i + 5]
+      if (!splice.call(this, start, deletionExtent, insertionExtent)) {
+        throw new Error('Patch does not apply')
+      }
+    }
+  }
 } else {
   try {
     binding = require('./build/Release/superstring.node')

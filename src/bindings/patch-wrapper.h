@@ -13,6 +13,7 @@ class PatchWrapper : public Napi::ObjectWrap<PatchWrapper> {
   static Napi::Value compose(const Napi::CallbackInfo &info);
 
   void splice(const Napi::CallbackInfo &info);
+  void splice_many(const Napi::CallbackInfo &info);
   void splice_old(const Napi::CallbackInfo &info);
   Napi::Value copy(const Napi::CallbackInfo &info);
   Napi::Value invert(const Napi::CallbackInfo &info);
