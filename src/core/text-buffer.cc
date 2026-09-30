@@ -271,9 +271,22 @@ struct TextBuffer::Layer {
     range.start = clip_position(range.start).position;
     range.end = clip_position(range.end).position;
 
+    // Only a match boundary at LF can lose its preceding CR across patch
+    // chunks. Normalize those reported points against this layer, but retain
+    // the raw search cursor so empty matches still advance past the LF.
+    auto report_match = [&](Range match, bool start_at_lf, bool end_at_lf) {
+      if (uses_patch) {
+        if (start_at_lf) match.start = clip_position(match.start).position;
+        if (end_at_lf) match.end = clip_position(match.end).position;
+      }
+      return callback(match);
+    };
+
     uint32_t minimum_match_row = range.start.row;
     Range last_match{Point::max(), Point::max()};
     bool last_match_is_pending = false;
+    bool last_match_start_at_lf = false;
+    bool last_match_end_at_lf = false;
     bool done = false;
     Text chunk_continuation;
     TextSlice slice_to_search;
@@ -293,17 +306,31 @@ struct TextBuffer::Layer {
           // with an LF, we decrement the end column because Points within CRLF line
           // endings are not valid.
           if (last_match_is_pending) {
+            bool advance_past_crlf = false;
             if (!remaining_chunk.empty() && remaining_chunk.front() == '\n') {
-              chunk_continuation.splice(Point(), Point(), Text{u"\r"});
-              slice_to_search_start_position.column--;
               last_match.end.column--;
+              last_match_end_at_lf = false;
+              if (last_match.start == last_match.end) {
+                // Match geometry can collapse when a CR is followed by LF.
+                // As with an empty match in one contiguous chunk, advance
+                // past the whole line ending instead of re-matching the CR.
+                last_search_end_position = Point(last_match.end.row + 1, 0);
+                slice_to_search_start_position = last_search_end_position;
+                minimum_match_row = last_search_end_position.row;
+                chunk_continuation.clear();
+                advance_past_crlf = true;
+              } else {
+                chunk_continuation.splice(Point(), Point(), Text{u"\r"});
+                slice_to_search_start_position.column--;
+              }
             }
 
             last_match_is_pending = false;
-            if (callback(last_match)) {
+            if (report_match(last_match, last_match_start_at_lf, last_match_end_at_lf)) {
               done = true;
               return true;
             }
+            if (advance_past_crlf) continue;
           }
 
           if (!chunk_continuation.empty()) {
@@ -360,6 +387,12 @@ struct TextBuffer::Layer {
             break;
 
           case MatchResult::Full:
+            if (uses_patch) {
+              last_match_start_at_lf = match_result.start_offset < slice_to_search.size() &&
+                slice_to_search.data()[match_result.start_offset] == '\n';
+              last_match_end_at_lf = match_result.end_offset < slice_to_search.size() &&
+                slice_to_search.data()[match_result.end_offset] == '\n';
+            }
             Point match_start_position = slice_to_search.position_for_offset(
               match_result.start_offset,
               minimum_match_row - slice_to_search_start_position.row
@@ -399,7 +432,7 @@ struct TextBuffer::Layer {
               continue;
             }
 
-            if (callback(last_match)) {
+            if (report_match(last_match, last_match_start_at_lf, last_match_end_at_lf)) {
               done = true;
               return true;
             }
@@ -411,7 +444,7 @@ struct TextBuffer::Layer {
     }, splay);
 
     if (last_match_is_pending) {
-      callback(last_match);
+      report_match(last_match, last_match_start_at_lf, last_match_end_at_lf);
     } else if (!done && last_match.end != range.end) {
       static char16_t EMPTY[] = {0};
       unsigned options = MatchOptions::IsEndSearch;
@@ -421,7 +454,7 @@ struct TextBuffer::Layer {
       }
       MatchResult match_result = regex.match(EMPTY, 0, match_data, options);
       if (match_result.type == MatchResult::Partial || match_result.type == MatchResult::Full) {
-        callback(Range{range.end, range.end});
+        report_match(Range{range.end, range.end}, false, false);
       }
     }
   }
