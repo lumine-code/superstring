@@ -22,6 +22,7 @@ optional<Point> PointWrapper::point_from_js(Napi::Value value) {
 
   Object object = value.As<Object>();
   Napi::Value maybe_row = object.Get("row");
+  if (env.IsExceptionPending()) return optional<Point>{};
   if (!maybe_row.IsNumber()) {
     Error::New(env, "Expected an object with 'row' and 'column' properties.").ThrowAsJavaScriptException();
     return optional<Point>{};
@@ -29,6 +30,7 @@ optional<Point> PointWrapper::point_from_js(Napi::Value value) {
   Number js_row = maybe_row.As<Number>();
 
   Napi::Value maybe_column = object.Get("column");
+  if (env.IsExceptionPending()) return optional<Point>{};
   if (!maybe_column.IsNumber()) {
     Error::New(env, "Expected an object with 'row' and 'column' properties.").ThrowAsJavaScriptException();
     return optional<Point>{};

@@ -26,9 +26,11 @@ private:
   void remove(const Napi::CallbackInfo &info);
   Napi::Value has(const Napi::CallbackInfo &info);
   Napi::Value splice(const Napi::CallbackInfo &info);
+  Napi::Value splice_packed(const Napi::CallbackInfo &info);
   Napi::Value get_start(const Napi::CallbackInfo &info);
   Napi::Value get_end(const Napi::CallbackInfo &info);
   Napi::Value get_range(const Napi::CallbackInfo &info);
+  Napi::Value get_ranges(const Napi::CallbackInfo &info);
   Napi::Value compare(const Napi::CallbackInfo &info);
   Napi::Value find_intersecting(const Napi::CallbackInfo &info);
   Napi::Value find_containing(const Napi::CallbackInfo &info);

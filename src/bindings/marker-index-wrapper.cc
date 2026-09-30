@@ -1,3 +1,4 @@
+#include <limits>
 #include <unordered_map>
 
 #include "napi.h"
@@ -20,9 +21,11 @@ void MarkerIndexWrapper::init(Napi::Env env, Object exports) {
     InstanceMethod("remove", &MarkerIndexWrapper::remove),
     InstanceMethod("has", &MarkerIndexWrapper::has),
     InstanceMethod("splice", &MarkerIndexWrapper::splice),
+    InstanceMethod("splicePacked", &MarkerIndexWrapper::splice_packed, napi_default_method),
     InstanceMethod("getStart", &MarkerIndexWrapper::get_start),
     InstanceMethod("getEnd", &MarkerIndexWrapper::get_end),
     InstanceMethod("getRange", &MarkerIndexWrapper::get_range),
+    InstanceMethod("getRanges", &MarkerIndexWrapper::get_ranges, napi_default_method),
     InstanceMethod("compare", &MarkerIndexWrapper::compare),
     InstanceMethod("findIntersecting", &MarkerIndexWrapper::find_intersecting),
     InstanceMethod("findContaining", &MarkerIndexWrapper::find_containing),
@@ -165,7 +168,9 @@ Napi::Value MarkerIndexWrapper::has(const CallbackInfo &info) {
 Napi::Value MarkerIndexWrapper::splice(const CallbackInfo &info) {
   auto env = info.Env();
   optional<Point> start = PointWrapper::point_from_js(info[0]);
+  if (!start) return env.Undefined();
   optional<Point> old_extent = PointWrapper::point_from_js(info[1]);
+  if (!old_extent) return env.Undefined();
   optional<Point> new_extent = PointWrapper::point_from_js(info[2]);
   if (start && old_extent && new_extent) {
     MarkerIndex::SpliceResult result = this->marker_index->splice(*start, *old_extent, *new_extent);
@@ -176,6 +181,52 @@ Napi::Value MarkerIndexWrapper::splice(const CallbackInfo &info) {
     invalidated.Set("overlap", marker_ids_set_to_js(result.overlap));
     invalidated.Set("surround", marker_ids_set_to_js(result.surround));
     return invalidated;
+  }
+
+  return env.Undefined();
+}
+
+Napi::Value MarkerIndexWrapper::splice_packed(const CallbackInfo &info) {
+  auto env = info.Env();
+  optional<Point> start = PointWrapper::point_from_js(info[0]);
+  if (!start) return env.Undefined();
+  optional<Point> old_extent = PointWrapper::point_from_js(info[1]);
+  if (!old_extent) return env.Undefined();
+  optional<Point> new_extent = PointWrapper::point_from_js(info[2]);
+  if (start && old_extent && new_extent) {
+    MarkerIndex::SpliceResult result = this->marker_index->splice(*start, *old_extent, *new_extent);
+    if (result.touch.size() == 0) return env.Null();
+    if (result.touch.size() > std::numeric_limits<size_t>::max() / (2 * sizeof(uint32_t))) {
+      RangeError::New(env, "MarkerIndex.splicePacked result is too large").ThrowAsJavaScriptException();
+      return env.Undefined();
+    }
+
+    Uint32Array packed = Uint32Array::New(env, result.touch.size() * 2);
+    if (env.IsExceptionPending()) return env.Undefined();
+    uint32_t *output = packed.Data();
+    auto inside = result.inside.begin();
+    auto overlap = result.overlap.begin();
+    auto surround = result.surround.begin();
+    // The core constructs inside and overlap from sources included in touch;
+    // surround intersects those source sets. All are sorted subsets of touch.
+    for (MarkerIndex::MarkerId id : result.touch) {
+      uint32_t flags = 1;
+      if (inside != result.inside.end() && *inside == id) {
+        flags |= 2;
+        ++inside;
+      }
+      if (overlap != result.overlap.end() && *overlap == id) {
+        flags |= 4;
+        ++overlap;
+      }
+      if (surround != result.surround.end() && *surround == id) {
+        flags |= 8;
+        ++surround;
+      }
+      *output++ = id;
+      *output++ = flags;
+    }
+    return packed;
   }
 
   return env.Undefined();
@@ -218,6 +269,35 @@ Napi::Value MarkerIndexWrapper::get_range(const CallbackInfo &info) {
   }
 
   return env.Undefined();
+}
+
+Napi::Value MarkerIndexWrapper::get_ranges(const CallbackInfo &info) {
+  auto env = info.Env();
+  if (info.Length() == 0 || !info[0].IsTypedArray() ||
+      info[0].As<TypedArray>().TypedArrayType() != napi_uint32_array) {
+    TypeError::New(env, "MarkerIndex.getRanges expects a Uint32Array").ThrowAsJavaScriptException();
+    return env.Undefined();
+  }
+
+  Uint32Array ids = info[0].As<Uint32Array>();
+  size_t count = ids.ElementLength();
+  if (count > std::numeric_limits<size_t>::max() / (4 * sizeof(uint32_t))) {
+    RangeError::New(env, "MarkerIndex.getRanges result is too large").ThrowAsJavaScriptException();
+    return env.Undefined();
+  }
+  Uint32Array result = Uint32Array::New(env, count * 4);
+  if (env.IsExceptionPending()) return env.Undefined();
+
+  const uint32_t *input = ids.Data();
+  uint32_t *output = result.Data();
+  for (size_t i = 0; i < count; i++, output += 4) {
+    Range range = this->marker_index->get_range(input[i]);
+    output[0] = range.start.row;
+    output[1] = range.start.column;
+    output[2] = range.end.row;
+    output[3] = range.end.column;
+  }
+  return result;
 }
 
 Napi::Value MarkerIndexWrapper::compare(const CallbackInfo &info) {

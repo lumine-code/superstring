@@ -94,6 +94,10 @@ This method returns an object that describes what markers were *invalidated* by 
 * `overlap` Contains markers that had one or both of their endpoints surrounded by the change.
 * `surround` Contains markers that had both endpoints surrounded by the change.
 
+##### `splicePacked (start, oldExtent, newExtent)`
+
+Updates marker locations with the same arguments and behavior as `splice`, returning `null` when no marker is touched or a fresh `Uint32Array` of marker id and invalidation flag pairs otherwise. Pairs are sorted by marker id. Flags are `touch = 1`, `inside = 2`, `overlap = 4`, and `surround = 8`; every returned pair has the touch bit set. A `null` result does not mean that marker positions stayed unchanged: markers after an edit can move without being touched.
+
 ##### `setExclusive (markerId, boolean)`
 
 This method allows to control the behavior of a marker when splices start and/or end at the marker's endpoints.
@@ -115,6 +119,10 @@ Removes the specified marker from the index.
 ##### `getRange (markerId)`
 
 Returns the range for the given marker id, in the form of an object with `start` and `end` points.
+
+##### `getRanges (markerIds)`
+
+Returns a fresh `Uint32Array` containing four coordinates per id from an input `Uint32Array`: start row, start column, end row, and end column. Input order, duplicate ids, and typed-array subviews are preserved. Missing ids produce four zeros, matching `getRange`, and empty input produces an empty array. Coordinates equal to `0xffffffff` retain the scalar API's finite value, including endpoints inserted with positive `Infinity`. Other input types throw `TypeError`; neither the input nor logical marker contents are changed.
 
 ##### `getStart (markerId)`
 

@@ -5,6 +5,213 @@ const {MarkerIndex} = require('../..')
 const MAX_INT32 = 4294967296
 
 describe('MarkerIndex', () => {
+  describe('packed marker transfer', () => {
+    const point = (row, column) => ({row, column})
+    const zero = point(0, 0)
+    const strategies = ['touch', 'inside', 'overlap', 'surround']
+    const scalarRanges = (index, ids) => new Uint32Array(Array.from(ids).flatMap(id => {
+      const {start, end} = index.getRange(id)
+      return [start.row, start.column, end.row, end.column]
+    }))
+
+    function checkSplice (scalar, packed, start, oldExtent, newExtent, message) {
+      const expected = scalar.splice(start, oldExtent, newExtent)
+      const actual = packed.splicePacked(start, oldExtent, newExtent)
+      for (const strategy of strategies) {
+        for (const id of expected[strategy]) assert(expected.touch.has(id), message)
+      }
+      if (expected.touch.size === 0) {
+        assert.isNull(actual, message)
+      } else {
+        assert(actual instanceof Uint32Array, message)
+        const values = [...expected.touch].sort((a, b) => a - b).flatMap(id => [
+          id, strategies.reduce((flags, strategy, bit) => flags | (expected[strategy].has(id) ? 1 << bit : 0), 0)
+        ])
+        assert.deepEqual([...actual], values, message)
+      }
+      assert.deepEqual(packed.dump(), scalar.dump(), message)
+      return actual
+    }
+
+    it('matches all invalidation strategies at inclusive, exclusive and point boundaries', () => {
+      const markers = [
+        [8, point(0, 0), point(4, 0)],
+        [3, point(1, 2), point(1, 7)],
+        [5, point(1, 2), point(1, 2)],
+        [0, point(1, 7), point(1, 7)],
+        [0xffffffff, point(2, 0), point(3, 3)],
+        [7, point(0, 0), point(0, 0)]
+      ]
+      const edits = [
+        [point(1, 2), zero, point(0, 3)],
+        [point(1, 7), zero, point(1, 0)],
+        [point(1, 3), point(0, 2), zero],
+        [point(1, 0), point(2, 4), point(1, 8)],
+        [point(1, 3), point(0, 2), point(0, 2)],
+        [point(1, 2), zero, zero],
+        [point(5, 0), zero, point(1, 2)]
+      ]
+      for (const exclusive of [false, true]) {
+        for (const edit of edits) {
+          const scalar = new MarkerIndex(7)
+          const packed = new MarkerIndex(7)
+          for (const index of [scalar, packed]) {
+            for (const [id, start, end] of markers) {
+              index.insert(id, start, end)
+              index.setExclusive(id, exclusive)
+            }
+          }
+          checkSplice(scalar, packed, ...edit, JSON.stringify({exclusive, edit}))
+          const ids = new Uint32Array([0xffffffff, 5, 0, 8, 3, 7, 5, 99])
+          assert.deepEqual(packed.getRanges(ids), scalarRanges(scalar, ids))
+        }
+      }
+    })
+
+    it('returns null for untouched edits even when later marker positions move', () => {
+      const index = new MarkerIndex(3)
+      assert.isNull(index.splicePacked(zero, zero, point(0, 3)))
+      index.insert(1, point(0, 10), point(0, 20))
+      assert.isNull(index.splicePacked(zero, zero, point(0, 3)))
+      assert.deepEqual(index.getRange(1), {start: point(0, 13), end: point(0, 23)})
+      assert.isNull(index.splicePacked(point(0, 30), point(0, 2), point(0, 2)))
+      assert.isNull(index.splicePacked(point(0, 15), zero, zero))
+      assert.deepEqual([...index.splicePacked(point(0, 15), point(0, 2), point(0, 2))], [1, 3])
+    })
+
+    it('matches scalar operations through deterministic insert, remove and undo-like edit sequences', () => {
+      for (let seed = 0; seed < 30; seed++) {
+        const random = new Random(seed)
+        const scalar = new MarkerIndex(seed)
+        const packed = new MarkerIndex(seed)
+        const ids = []
+        let nextId = 1
+        for (let step = 0; step < 80; step++) {
+          const action = random(10)
+          const message = `Seed ${seed}, step ${step}`
+          if (action < 4 || ids.length === 0) {
+            const id = nextId++
+            const start = point(random(5), random(20))
+            const end = traverse(start, point(random(3), random(12)))
+            const exclusive = !!random(2)
+            ids.push(id)
+            for (const index of [scalar, packed]) {
+              index.insert(id, start, end)
+              index.setExclusive(id, exclusive)
+            }
+          } else if (action === 4) {
+            const offset = random(ids.length)
+            for (const index of [scalar, packed]) index.remove(ids[offset])
+            ids.splice(offset, 1)
+          } else if (action === 5) {
+            const id = ids[random(ids.length)]
+            const exclusive = !!random(2)
+            for (const index of [scalar, packed]) index.setExclusive(id, exclusive)
+          } else {
+            const start = point(random(7), random(20))
+            const oldExtent = point(random(3), random(8))
+            const newExtent = point(random(3), random(8))
+            checkSplice(scalar, packed, start, oldExtent, newExtent, message)
+            if (action === 9) checkSplice(scalar, packed, start, newExtent, oldExtent, message)
+          }
+          const requested = new Uint32Array([nextId + 10, ...ids.slice().reverse(), ids[0] || 0, 0xffffffff])
+          assert.deepEqual(packed.getRanges(requested), scalarRanges(scalar, requested), message)
+          assert.deepEqual(packed.dump(), scalar.dump(), message)
+        }
+      }
+    })
+
+    it('preserves maximum coordinates, Infinity endpoints and historical reversed ranges', () => {
+      const maximum = 0xffffffff
+      const scalar = new MarkerIndex(2)
+      const packed = new MarkerIndex(2)
+      for (const index of [scalar, packed]) {
+        index.insert(maximum, point(10, 0), point(Infinity, Infinity))
+        index.insert(0, point(0, 20), point(0, 10))
+      }
+      for (const column of [1, 14, 25]) {
+        checkSplice(scalar, packed, point(0, column), point(0, 2), point(0, 2))
+      }
+      checkSplice(scalar, packed, point(20, 1), point(0, 2), point(0, 2))
+      checkSplice(scalar, packed, point(maximum, maximum - 1), point(0, 1), point(0, 1))
+      const ids = new Uint32Array([maximum, 0, maximum, 123])
+      assert.deepEqual(packed.getRanges(ids), scalarRanges(scalar, ids))
+      assert.deepEqual([...packed.getRanges(new Uint32Array([maximum]))], [10, 0, maximum, maximum])
+    })
+
+    it('uses the same scalar point conversions and rejects malformed splice arguments without mutations', () => {
+      const scalar = new MarkerIndex(2)
+      const packed = new MarkerIndex(2)
+      for (const index of [scalar, packed]) index.insert(1, point(0, 1), point(1, 3))
+      checkSplice(scalar, packed, point(-1, -4), point(-1, 0.9), point(0, 2.8))
+      const before = packed.dump()
+      for (let slot = 0; slot < 3; slot++) {
+        for (const invalid of [undefined, null, false, 1, {}, {row: 0}, point(0, '1'), {column: 1}]) {
+          const args = [zero, zero, zero]
+          args[slot] = invalid
+          let legacyError
+          try { scalar.splice(...args) } catch (error) { legacyError = error }
+          assert(legacyError)
+          assert.throws(() => packed.splicePacked(...args), error => error.constructor === legacyError.constructor && error.message === legacyError.message)
+          assert.deepEqual(packed.dump(), before)
+          assert.deepEqual(scalar.dump(), before)
+        }
+        for (const property of ['row', 'column']) {
+          const failure = new Error(`Throwing ${property}, argument ${slot}`)
+          const invalid = point(0, 0)
+          Object.defineProperty(invalid, property, {get () { throw failure }})
+          const args = [zero, zero, zero]
+          args[slot] = invalid
+          assert.throws(() => scalar.splice(...args), error => error === failure)
+          assert.throws(() => packed.splicePacked(...args), error => error === failure)
+          assert.deepEqual(packed.dump(), before)
+          assert.deepEqual(scalar.dump(), before)
+        }
+      }
+    })
+
+    it('preserves batch order, duplicate and missing ids, subviews and owned output storage', () => {
+      const index = new MarkerIndex(5)
+      index.insert(3, point(1, 2), point(4, 5))
+      index.insert(1, point(0, 2), point(0, 8))
+      const storage = new Uint32Array([77, 3, 99, 1, 3, 88])
+      const ids = storage.subarray(1, 5)
+      const before = [...storage]
+      const result = index.getRanges(ids)
+      assert(result instanceof Uint32Array)
+      assert.deepEqual(result, scalarRanges(index, ids))
+      assert.deepEqual([...storage], before)
+      assert.notEqual(result.buffer, storage.buffer)
+      assert.notEqual(result.buffer, index.getRanges(ids).buffer)
+      result.fill(99)
+      assert.deepEqual(index.getRanges(ids), scalarRanges(index, ids))
+      const empty = index.getRanges(new Uint32Array())
+      assert.equal(empty.length, 0)
+      assert.notEqual(empty.buffer, index.getRanges(new Uint32Array()).buffer)
+
+      const invalidated = index.splicePacked(point(0, 3), point(0, 1), point(0, 2))
+      const invalidatedBefore = [...invalidated]
+      index.splicePacked(point(0, 3), point(0, 1), point(0, 2))
+      assert.deepEqual([...invalidated], invalidatedBefore)
+      invalidated.fill(99)
+      assert(index.has(1))
+      assert.deepEqual(index.getRange(1), {start: point(0, 2), end: point(0, 10)})
+    })
+
+    it('requires Uint32Array batch inputs and exposes writable packed methods', () => {
+      const index = new MarkerIndex()
+      assert.throws(() => index.getRanges(), TypeError)
+      for (const input of [undefined, null, [], {}, new Int32Array(), new Float64Array(), new BigUint64Array(), new DataView(new ArrayBuffer(4)), Buffer.alloc(4), Object.create(Uint32Array.prototype)]) {
+        assert.throws(() => index.getRanges(input), TypeError)
+      }
+      for (const name of ['splicePacked', 'getRanges']) {
+        const descriptor = Object.getOwnPropertyDescriptor(MarkerIndex.prototype, name)
+        assert.isTrue(descriptor.writable)
+        assert.isTrue(descriptor.configurable)
+      }
+    })
+  })
+
   it('maintains correct marker positions during randomized insertions and mutations', function () {
     let seed, seedMessage, random, markerIndex, markers, idCounter
 
