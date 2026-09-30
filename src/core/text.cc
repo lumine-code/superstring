@@ -279,6 +279,10 @@ void Text::append(TextSlice slice) {
 }
 
 void Text::assign(TextSlice slice) {
+  if (slice.text == this) {
+    *this = Text(slice);
+    return;
+  }
   uint32_t slice_start_offset = slice.start_offset();
 
   content.assign(

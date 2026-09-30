@@ -372,6 +372,8 @@ struct TextBuffer::Layer {
               slice_to_search_start_position.traverse(match_start_position),
               slice_to_search_start_position.traverse(match_end_position)
             };
+            const bool match_ends_with_cr = match_result.end_offset == slice_to_search.size() &&
+              slice_to_search.back() == '\r';
 
             last_search_end_position = last_match.end;
             if (match_end_position == match_start_position) {
@@ -392,7 +394,7 @@ struct TextBuffer::Layer {
 
             // If the match ends with a CR at the end of a chunk, continue looking
             // at the next chunk, in case that chunk starts with an LF.
-            if (match_result.end_offset == slice_to_search.size() && slice_to_search.back() == '\r') {
+            if (match_ends_with_cr) {
               last_match_is_pending = true;
               continue;
             }

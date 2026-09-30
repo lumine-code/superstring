@@ -62,6 +62,14 @@ TEST_CASE("Text::concat") {
   }
 }
 
+TEST_CASE("Text::assign - slice of the same text") {
+  Text text{u"abc\ndef\r\nghi"};
+  text.assign(TextSlice(text).suffix({1, 1}));
+  REQUIRE(text == Text{u"ef\r\nghi"});
+  REQUIRE(text.extent() == Point{1, 3});
+  REQUIRE(text.offset_for_position({1, 2}) == 6);
+}
+
 TEST_CASE("Text::splice") {
   Text text {u"abc\ndef\r\nghi\njkl"};
   text.splice({1, 2}, {1, 1}, Text {u"mno\npq\r\nst"});
