@@ -1,4 +1,5 @@
 #include <memory>
+#include <limits>
 #include <sstream>
 #include <vector>
 
@@ -16,6 +17,10 @@ static const char *InvalidSpliceMessage = "Patch does not apply";
 static const char *InvalidSpliceManyTypeMessage = "Patch.spliceMany expects a Uint32Array";
 static const char *InvalidSpliceManyLengthMessage =
   "Patch.spliceMany expects a Uint32Array whose length is a multiple of 6";
+static const char *InvalidOldPositionsTypeMessage =
+  "Patch.changesForOldPositions expects a Uint32Array";
+static const char *InvalidOldPositionsLengthMessage =
+  "Patch.changesForOldPositions expects a Uint32Array whose length is a multiple of 2";
 
 class ChangeWrapper : public ObjectWrap<ChangeWrapper> {
  public:
@@ -80,6 +85,7 @@ void PatchWrapper::init(Napi::Env env, Object exports) {
     InstanceMethod<&PatchWrapper::get_changes_in_old_range>("getChangesInOldRange"),
     InstanceMethod<&PatchWrapper::get_changes_in_new_range>("getChangesInNewRange"),
     InstanceMethod<&PatchWrapper::change_for_old_position>("changeForOldPosition"),
+    InstanceMethod<&PatchWrapper::changes_for_old_positions>("changesForOldPositions"),
     InstanceMethod<&PatchWrapper::change_for_new_position>("changeForNewPosition"),
     InstanceMethod<&PatchWrapper::serialize>("serialize"),
     InstanceMethod<&PatchWrapper::get_dot_graph>("getDotGraph"),
@@ -281,6 +287,47 @@ Napi::Value PatchWrapper::change_for_old_position(const CallbackInfo &info) {
   }
 
   return env.Undefined();
+}
+
+Napi::Value PatchWrapper::changes_for_old_positions(const CallbackInfo &info) {
+  Napi::Env env = info.Env();
+  if (info.Length() == 0 || !info[0].IsTypedArray() ||
+      info[0].As<TypedArray>().TypedArrayType() != napi_uint32_array) {
+    TypeError::New(env, InvalidOldPositionsTypeMessage).ThrowAsJavaScriptException();
+    return env.Undefined();
+  }
+
+  Uint32Array positions = info[0].As<Uint32Array>();
+  size_t length = positions.ElementLength();
+  if (length % 2 != 0) {
+    TypeError::New(env, InvalidOldPositionsLengthMessage).ThrowAsJavaScriptException();
+    return env.Undefined();
+  }
+
+  size_t count = length / 2;
+  if (count > std::numeric_limits<size_t>::max() / (9 * sizeof(uint32_t))) {
+    RangeError::New(env, "Patch.changesForOldPositions result is too large").ThrowAsJavaScriptException();
+    return env.Undefined();
+  }
+  Uint32Array result = Uint32Array::New(env, count * 9);
+  if (env.IsExceptionPending()) return env.Undefined();
+
+  const uint32_t *values = positions.Data();
+  uint32_t *output = result.Data();
+  for (size_t i = 0; i < count; i++, output += 9) {
+    auto change = patch.grab_change_starting_before_old_position(Point(values[2 * i], values[2 * i + 1]));
+    if (!change) continue; // New array storage is zero-filled for missing predecessors.
+    output[0] = 1;
+    output[1] = change->old_start.row;
+    output[2] = change->old_start.column;
+    output[3] = change->old_end.row;
+    output[4] = change->old_end.column;
+    output[5] = change->new_start.row;
+    output[6] = change->new_start.column;
+    output[7] = change->new_end.row;
+    output[8] = change->new_end.column;
+  }
+  return result;
 }
 
 Napi::Value PatchWrapper::change_for_new_position(const CallbackInfo &info) {

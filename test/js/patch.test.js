@@ -9,6 +9,123 @@ const {
 const {Patch} = require('../..')
 
 describe('Patch', function () {
+  describe('#changesForOldPositions', () => {
+    const packPositions = positions => new Uint32Array(positions.flatMap(({row, column}) => [
+      row === Infinity ? 0xffffffff : row,
+      column === Infinity ? 0xffffffff : column
+    ]))
+    const scalarChanges = (patch, positions) => new Uint32Array(positions.flatMap(position => {
+      const change = patch.changeForOldPosition(position)
+      if (!change) return new Array(9).fill(0)
+      return [1, change.oldStart.row, change.oldStart.column, change.oldEnd.row,
+        change.oldEnd.column, change.newStart.row, change.newStart.column,
+        change.newEnd.row, change.newEnd.column]
+    }))
+
+    it('matches scalar geometry at insertion, deletion, replacement and adjacent boundaries', () => {
+      for (const mergeAdjacentChanges of [false, true]) {
+        const patch = new Patch({mergeAdjacentChanges})
+        patch.splice({row: 0, column: 5}, {row: 0, column: 0}, {row: 1, column: 3})
+        patch.splice({row: 1, column: 3}, {row: 0, column: 4}, {row: 0, column: 2})
+        patch.splice({row: 2, column: 2}, {row: 1, column: 3}, {row: 0, column: 0})
+        patch.splice({row: 4, column: 1}, {row: 0, column: 3}, {row: 2, column: 5})
+        const before = JSON.parse(JSON.stringify(patch.getChanges()))
+        const positions = [{row: 0, column: 0}, {row: 20, column: 0}]
+        for (const change of patch.getChanges()) {
+          positions.push(change.oldStart, change.oldEnd,
+            {row: change.oldStart.row, column: change.oldStart.column + 1},
+            {row: change.oldEnd.row, column: change.oldEnd.column + 1})
+          if (change.oldStart.column > 0) {
+            positions.push({row: change.oldStart.row, column: change.oldStart.column - 1})
+          }
+        }
+        positions.reverse()
+        positions.push(...positions.slice(0, 3))
+        const packed = packPositions(positions)
+        const inputCopy = packed.slice()
+        const result = patch.changesForOldPositions(packed)
+        assert(result instanceof Uint32Array)
+        assert.deepEqual(result, scalarChanges(patch.copy(), positions))
+        assert.deepEqual(packed, inputCopy)
+        assert.deepEqual(JSON.parse(JSON.stringify(patch.getChanges())), before)
+      }
+    })
+
+    it('returns zero records for missing predecessors and accepts empty input', () => {
+      const patch = new Patch()
+      assert.deepEqual(patch.changesForOldPositions(new Uint32Array()), new Uint32Array())
+      assert.deepEqual(patch.changesForOldPositions(new Uint32Array([0, 0, 7, 20])), new Uint32Array(18))
+      patch.splice({row: 2, column: 5}, {row: 0, column: 0}, {row: 0, column: 3})
+      assert.deepEqual(patch.changesForOldPositions(new Uint32Array([0, 0, 2, 4])), new Uint32Array(18))
+    })
+
+    it('reads subviews without exposing or changing their surrounding storage', () => {
+      const patch = new Patch()
+      patch.splice({row: 1, column: 2}, {row: 0, column: 3}, {row: 2, column: 4})
+      const positions = [{row: 5, column: 9}, {row: 0, column: 0}, {row: 1, column: 2}]
+      const storage = new Uint32Array([99, 99, ...packPositions(positions), 88, 88])
+      const before = storage.slice()
+      const view = storage.subarray(2, storage.length - 2)
+      const result = patch.changesForOldPositions(view)
+      assert.deepEqual(result, scalarChanges(patch.copy(), positions))
+      result.fill(42)
+      assert.deepEqual(storage, before)
+      assert.deepEqual(patch.changesForOldPositions(view), scalarChanges(patch.copy(), positions))
+    })
+
+    it('uses UINT32_MAX for positive Infinity in input and result coordinates', () => {
+      const patch = new Patch({mergeAdjacentChanges: false})
+      patch.splice({row: 0, column: 5}, {row: 0, column: 0}, {row: 1, column: Infinity})
+      const positions = [
+        {row: 0, column: Infinity}, {row: Infinity, column: 0},
+        {row: Infinity, column: Infinity}, {row: 0, column: 4}
+      ]
+      const result = patch.changesForOldPositions(packPositions(positions))
+      assert.deepEqual(result, scalarChanges(patch.copy(), positions))
+      assert.equal(result[8], 0xffffffff)
+    })
+
+    it('omits text while preserving text-bearing patch contents', () => {
+      const patch = new Patch()
+      patch.splice({row: 0, column: 4}, {row: 0, column: 3}, {row: 0, column: 4}, 'abc', '1234')
+      const positions = [{row: 0, column: 4}, {row: 0, column: 7}, {row: 0, column: 100}]
+      const before = JSON.parse(JSON.stringify(patch.getChanges()))
+      assert.deepEqual(patch.changesForOldPositions(packPositions(positions)), scalarChanges(patch.copy(), positions))
+      assert.deepEqual(JSON.parse(JSON.stringify(patch.getChanges())), before)
+    })
+
+    it('matches scalar lookups throughout randomized text edits', () => {
+      for (const mergeAdjacentChanges of [false, true]) {
+        for (const seed of ['old-positions-1', 'old-positions-2', 'old-positions-3']) {
+          const document = new TestDocument(seed, 20)
+          const patch = new Patch({mergeAdjacentChanges})
+          for (let i = 0; i < 100; i++) {
+            const edit = document.performRandomSplice(true)
+            patch.splice(edit.start, edit.deletedExtent, edit.insertedExtent, edit.deletedText, edit.insertedText)
+            const positions = [
+              {row: 0, column: 0}, {row: Infinity, column: Infinity},
+              ...Array.from({length: 8}, () => document.buildRandomPoint()),
+              ...patch.getChanges().flatMap(change => [change.oldStart, change.oldEnd])
+            ]
+            positions.reverse()
+            positions.push(positions[0])
+            assert.deepEqual(patch.changesForOldPositions(packPositions(positions)), scalarChanges(patch.copy(), positions), `${seed}, edit ${i}`)
+          }
+        }
+      }
+    })
+
+    it('throws TypeError for wrong typed arrays and odd lengths without changing contents', () => {
+      const patch = new Patch()
+      patch.splice({row: 0, column: 3}, {row: 0, column: 2}, {row: 1, column: 1})
+      const before = JSON.parse(JSON.stringify(patch.getChanges()))
+      for (const input of [undefined, null, [], {}, new Uint8Array(2), new Int32Array(2), new Float64Array(2), new Uint32Array(3), {[Symbol.toStringTag]: 'Uint32Array', length: 2}]) {
+        assert.throws(() => patch.changesForOldPositions(input), TypeError)
+      }
+      assert.deepEqual(JSON.parse(JSON.stringify(patch.getChanges())), before)
+    })
+  })
+
   describe('#spliceMany', () => {
     it('applies packed geometry splices in order', () => {
       for (const mergeAdjacentChanges of [false, true]) {

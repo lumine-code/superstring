@@ -21,6 +21,7 @@ class PatchWrapper : public Napi::ObjectWrap<PatchWrapper> {
   Napi::Value get_changes_in_old_range(const Napi::CallbackInfo &info);
   Napi::Value get_changes_in_new_range(const Napi::CallbackInfo &info);
   Napi::Value change_for_old_position(const Napi::CallbackInfo &info);
+  Napi::Value changes_for_old_positions(const Napi::CallbackInfo &info);
   Napi::Value change_for_new_position(const Napi::CallbackInfo &info);
   Napi::Value serialize(const Napi::CallbackInfo &info);
   Napi::Value get_dot_graph(const Napi::CallbackInfo &info);

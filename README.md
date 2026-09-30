@@ -49,6 +49,12 @@ assert.deepEqual(patch.getChanges(), [
 
 Applies geometry-only splices in order from a packed `Uint32Array`, using six values per splice: start row, start column, deleted extent row, deleted extent column, inserted extent row, and inserted extent column. Components equal to `0xffffffff` represent an infinite row or column. This method does not accept deleted or inserted text.
 
+#### `changesForOldPositions(positions)`
+
+Looks up the last change starting at or before each input position, matching `changeForOldPosition` without allocating JavaScript change or point objects. Pass a packed `Uint32Array` of row and column pairs. The returned `Uint32Array` contains nine values per input position: found (1 or 0), old start row and column, old end row and column, new start row and column, and new end row and column. Missing changes have nine zero values; deleted and inserted text are omitted.
+
+Input order and duplicate positions are preserved, and typed-array subviews are read at their byte offset. Empty input produces an empty array. The input and logical patch contents are unchanged, although lookups may rebalance its internal tree. Wrong input types and odd lengths throw `TypeError`. Components equal to `0xffffffff` have the same meaning as positive `Infinity` in the scalar API, and result coordinates retain that sentinel.
+
 ### MarkerIndex
 
 This data structure is used to track logical locations in a text buffer as the contents of the buffer are changed.
