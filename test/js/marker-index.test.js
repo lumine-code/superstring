@@ -397,6 +397,9 @@ describe('MarkerIndex', () => {
       while (random(2)) {
         newExtent = traverse(newExtent, {row: random(10), column: random(10)})
       }
+      // Exercise equal-extent replacements, including disjoint and intersecting
+      // ranges, against the same position/invalidation oracle.
+      if (random(2)) newExtent = oldExtent
       return [start, oldExtent, newExtent]
     }
 
@@ -531,5 +534,122 @@ describe('MarkerIndex', () => {
     index.insert(1, {row: 10, column: 10}, {row: 20, column: 20})
     let result = index.findEndingIn({row: 0, column: 0}, {row: Infinity, column: Infinity})
     assert(result.has(1))
+  })
+
+  it('preserves cached positions across disjoint equal-extent replacements and later mutations', () => {
+    const index = new MarkerIndex(7)
+    const point = column => ({row: 0, column})
+    index.insert(1, point(10), point(20))
+    index.insert(2, point(40), point(50))
+    index.insert(3, point(70), point(70))
+    index.setExclusive(2, true)
+    index.setExclusive(3, true)
+    const expected = index.dump()
+
+    for (let i = 0; i < 50; i++) {
+      for (const column of [1, 30, 80]) {
+        for (const id of [1, 2, 3]) index.getRange(id)
+        const invalidated = index.splice(point(column), point(2), point(2))
+        for (const ids of Object.values(invalidated)) assert.equal(ids.size, 0)
+        assert.deepEqual(index.dump(), expected)
+        assert.deepEqual([...index.findIntersecting(point(10), point(50))], [1, 2])
+      }
+    }
+
+    index.splice(point(0), point(0), point(3))
+    assert.deepEqual(index.getRange(1), {start: point(13), end: point(23)})
+    assert.deepEqual(index.getRange(2), {start: point(43), end: point(53)})
+    assert.deepEqual(index.getRange(3), {start: point(73), end: point(73)})
+    index.remove(2)
+    index.insert(4, point(25), point(28))
+    index.splice(point(26), point(1), point(1))
+    assert.deepEqual(index.getRange(4), {start: point(25), end: point(28)})
+    assert.deepEqual([...index.findIntersecting(point(25), point(28))], [4])
+  })
+
+  it('keeps a single marker stable across equal-extent edits before and after its range', () => {
+    const point = column => ({row: 0, column})
+    for (const exclusive of [false, true]) {
+      const index = new MarkerIndex(7)
+      index.insert(1, point(10), point(20))
+      index.setExclusive(1, exclusive)
+      for (let i = 0; i < 50; i++) {
+        for (const column of [1, 30]) {
+          const invalidated = index.splice(point(column), point(2), point(2))
+          for (const ids of Object.values(invalidated)) assert.equal(ids.size, 0)
+          assert.deepEqual(index.getRange(1), {start: point(10), end: point(20)})
+        }
+      }
+      index.splice(point(0), point(0), point(3))
+      assert.deepEqual(index.getRange(1), {start: point(13), end: point(23)})
+      index.splice(point(1), point(2), point(2))
+      assert.deepEqual(index.getRange(1), {start: point(13), end: point(23)})
+    }
+  })
+
+  it('keeps closed boundary invalidation for equal-extent replacements', () => {
+    const point = column => ({row: 0, column})
+    for (const exclusive of [false, true]) {
+      for (const [start, end, spliceStart] of [[10, 20, 8], [10, 20, 20], [10, 10, 8], [10, 10, 10]]) {
+        const index = new MarkerIndex(3)
+        index.insert(1, point(start), point(end))
+        index.setExclusive(1, exclusive)
+        const invalidated = index.splice(point(spliceStart), point(2), point(2))
+        assert.deepEqual([...invalidated.touch], [1])
+        assert.equal(invalidated.overlap.size, 0)
+        assert.equal(invalidated.surround.size, 0)
+      }
+    }
+  })
+
+  it('invalidates enclosing markers even when no endpoint falls inside the splice', () => {
+    const point = column => ({row: 0, column})
+    const index = new MarkerIndex(8)
+    index.insert(1, point(0), point(100))
+    const invalidated = index.splice(point(40), point(2), point(2))
+    assert.deepEqual([...invalidated.touch], [1])
+    assert.deepEqual([...invalidated.inside], [1])
+    assert.equal(invalidated.overlap.size, 0)
+    assert.equal(invalidated.surround.size, 0)
+    assert.deepEqual(index.getRange(1), {start: point(0), end: point(100)})
+  })
+
+  it('requires both row and column extents to match before preserving later positions', () => {
+    const index = new MarkerIndex(2)
+    index.insert(1, {row: 5, column: 3}, {row: 6, column: 4})
+    let invalidated = index.splice({row: 0, column: 4}, {row: 1, column: 2}, {row: 1, column: 2})
+    for (const ids of Object.values(invalidated)) assert.equal(ids.size, 0)
+    assert.deepEqual(index.getRange(1), {start: {row: 5, column: 3}, end: {row: 6, column: 4}})
+    invalidated = index.splice({row: 0, column: 4}, {row: 1, column: 2}, {row: 0, column: 2})
+    for (const ids of Object.values(invalidated)) assert.equal(ids.size, 0)
+    assert.deepEqual(index.getRange(1), {start: {row: 4, column: 3}, end: {row: 5, column: 4}})
+  })
+
+  it('keeps historical reversed-range handling on the normal splice path', () => {
+    const point = column => ({row: 0, column})
+    const index = new MarkerIndex(1)
+    index.insert(1, point(20), point(10))
+    for (const column of [1, 14, 25]) {
+      const invalidated = index.splice(point(column), point(2), point(2))
+      for (const ids of Object.values(invalidated)) assert.equal(ids.size, 0)
+      assert.deepEqual(index.getRange(1), {start: point(20), end: point(10)})
+    }
+  })
+
+  it('preserves Infinity endpoints and their closed-boundary invalidation', () => {
+    const maximum = 0xffffffff
+    const index = new MarkerIndex(2)
+    index.insert(1, {row: 10, column: 0}, {row: Infinity, column: Infinity})
+    const before = index.getRange(1)
+    let invalidated = index.splice({row: 0, column: 1}, {row: 0, column: 2}, {row: 0, column: 2})
+    for (const ids of Object.values(invalidated)) assert.equal(ids.size, 0)
+    assert.deepEqual(index.getRange(1), before)
+    invalidated = index.splice({row: 20, column: 1}, {row: 0, column: 2}, {row: 0, column: 2})
+    assert.deepEqual([...invalidated.touch], [1])
+    assert.deepEqual([...invalidated.inside], [1])
+    assert.deepEqual(index.getEnd(1), {row: maximum, column: maximum})
+    invalidated = index.splice({row: maximum, column: maximum - 1}, {row: 0, column: 1}, {row: 0, column: 1})
+    assert.deepEqual([...invalidated.touch], [1])
+    assert.deepEqual(index.getRange(1), before)
   })
 })
