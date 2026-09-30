@@ -383,40 +383,46 @@ TEST_CASE("TextBuffer::find - partial matches at EOF") {
 TEST_CASE("TextBuffer::find - CRLF coordinates across patch chunks") {
   for (unsigned variant = 0; variant < 3; variant++) {
     INFO("CRLF split variant: " << variant);
-    TextBuffer buffer{variant == 0 ? u"1234567\nX\nY" :
-                      variant == 1 ? u"1234567\rX\nY" : u"1234567\rb\nX\nY"};
-    auto original_snapshot = buffer.create_snapshot();
-    if (variant == 0) {
-      buffer.set_text_in_range({{0, 7}, {0, 7}}, u"\r");
-    } else if (variant == 1) {
-      buffer.set_text_in_range({{0, 8}, {0, 8}}, u"\n");
-    } else {
-      buffer.set_text_in_range({{0, 8}, {0, 9}}, u"");
-    }
-    REQUIRE(buffer.text() == u"1234567\r\nX\nY");
-    TextBuffer reference{u"1234567\r\nX\nY"};
-    auto snapshot = buffer.create_snapshot();
-
-    const vector<u16string> patterns{u"\\n", u"\\r\\n", u"\\r", u"(?=\\n)", u"(?=\\r?\\n)", u""};
-    const vector<Range> ranges{
-      Range::all_inclusive(), {{0, 7}, {1, 0}}, {{0, 8}, {1, 0}},
-      {{0, 0}, {0, 8}}, {{1, 0}, {2, 1}}
-    };
-    for (const auto &pattern : patterns) {
-      INFO("pattern: " << Text{pattern});
-      Regex regex(pattern, nullptr);
-      for (const auto &range : ranges) {
-        INFO("range: " << range);
-        REQUIRE(buffer.find(regex, range) == reference.find(regex, range));
-        REQUIRE(buffer.find_all(regex, range) == reference.find_all(regex, range));
-        REQUIRE(snapshot->find(regex, range) == reference.find(regex, range));
-        REQUIRE(snapshot->find_all(regex, range) == reference.find_all(regex, range));
+    for (bool later_crlf : {false, true}) {
+      INFO("later contiguous CRLF: " << later_crlf);
+      const u16string tail = later_crlf ? u"X\r\nY" : u"X\nY";
+      const u16string prefix = variant == 0 ? u"1234567\n" :
+                              variant == 1 ? u"1234567\r" : u"1234567\rb\n";
+      TextBuffer buffer{prefix + tail};
+      auto original_snapshot = buffer.create_snapshot();
+      if (variant == 0) {
+        buffer.set_text_in_range({{0, 7}, {0, 7}}, u"\r");
+      } else if (variant == 1) {
+        buffer.set_text_in_range({{0, 8}, {0, 8}}, u"\n");
+      } else {
+        buffer.set_text_in_range({{0, 8}, {0, 9}}, u"");
       }
+      REQUIRE(buffer.text() == u16string{u"1234567\r\n"} + tail);
+      TextBuffer reference{u16string{u"1234567\r\n"} + tail};
+      auto snapshot = buffer.create_snapshot();
+
+      const vector<u16string> patterns{u"\\n", u"\\r\\n", u"\\r", u"(?=\\n)", u"(?=\\r?\\n)", u""};
+      const vector<Range> ranges{
+        Range::all_inclusive(), {{0, 7}, {1, 0}}, {{0, 8}, {1, 0}},
+        {{0, 0}, {0, 8}}, {{1, 0}, {2, 1}}, {{1, 1}, {2, 0}},
+        {{1, 2}, {2, 0}}, {{1, 0}, {1, 2}}
+      };
+      for (const auto &pattern : patterns) {
+        INFO("pattern: " << Text{pattern});
+        Regex regex(pattern, nullptr);
+        for (const auto &range : ranges) {
+          INFO("range: " << range);
+          REQUIRE(buffer.find(regex, range) == reference.find(regex, range));
+          REQUIRE(buffer.find_all(regex, range) == reference.find_all(regex, range));
+          REQUIRE(snapshot->find(regex, range) == reference.find(regex, range));
+          REQUIRE(snapshot->find_all(regex, range) == reference.find_all(regex, range));
+        }
+      }
+      buffer.set_text_in_range({{2, 0}, {2, 1}}, u"Z");
+      REQUIRE(snapshot->find_all(Regex(u"\\n", nullptr)) == reference.find_all(Regex(u"\\n", nullptr)));
+      delete snapshot;
+      delete original_snapshot;
     }
-    buffer.set_text_in_range({{2, 0}, {2, 1}}, u"Z");
-    REQUIRE(snapshot->find_all(Regex(u"\\n", nullptr)) == reference.find_all(Regex(u"\\n", nullptr)));
-    delete snapshot;
-    delete original_snapshot;
   }
 }
 

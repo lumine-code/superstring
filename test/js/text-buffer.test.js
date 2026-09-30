@@ -1065,28 +1065,33 @@ describe('TextBuffer', () => {
         Range(Point(0, 7), Point(1, 0)),
         Range(Point(0, 8), Point(1, 0)),
         Range(Point(0, 0), Point(0, 8)),
-        Range(Point(1, 0), Point(2, 1))
+        Range(Point(1, 0), Point(2, 1)),
+        Range(Point(1, 1), Point(2, 0)),
+        Range(Point(1, 2), Point(2, 0)),
+        Range(Point(1, 0), Point(1, 2))
       ]
       for (const [text, editRange, insertion] of variants) {
-        const buffer = new TextBuffer(text)
-        buffer.setTextInRange(editRange, insertion)
-        assert.equal(buffer.getText(), '1234567\r\nX\nY')
-        const reference = new TextBuffer(buffer.getText())
-        for (const pattern of patterns) {
-          assert.deepEqual(buffer.findSync(pattern), reference.findSync(pattern))
-          assert.deepEqual(buffer.findAllSync(pattern), reference.findAllSync(pattern))
-          assert.deepEqual(await buffer.find(pattern), reference.findSync(pattern))
-          assert.deepEqual(await buffer.findAll(pattern), reference.findAllSync(pattern))
-          for (const range of ranges) {
-            assert.deepEqual(buffer.findInRangeSync(pattern, range), reference.findInRangeSync(pattern, range))
-            assert.deepEqual(buffer.findAllInRangeSync(pattern, range), reference.findAllInRangeSync(pattern, range))
-            assert.deepEqual(await buffer.findInRange(pattern, range), reference.findInRangeSync(pattern, range))
-            assert.deepEqual(await buffer.findAllInRange(pattern, range), reference.findAllInRangeSync(pattern, range))
+        for (const laterCRLF of [false, true]) {
+          const buffer = new TextBuffer(laterCRLF ? text.replace('X\nY', 'X\r\nY') : text)
+          buffer.setTextInRange(editRange, insertion)
+          assert.equal(buffer.getText(), laterCRLF ? '1234567\r\nX\r\nY' : '1234567\r\nX\nY')
+          const reference = new TextBuffer(buffer.getText())
+          for (const pattern of patterns) {
+            assert.deepEqual(buffer.findSync(pattern), reference.findSync(pattern))
+            assert.deepEqual(buffer.findAllSync(pattern), reference.findAllSync(pattern))
+            assert.deepEqual(await buffer.find(pattern), reference.findSync(pattern))
+            assert.deepEqual(await buffer.findAll(pattern), reference.findAllSync(pattern))
+            for (const range of ranges) {
+              assert.deepEqual(buffer.findInRangeSync(pattern, range), reference.findInRangeSync(pattern, range))
+              assert.deepEqual(buffer.findAllInRangeSync(pattern, range), reference.findAllInRangeSync(pattern, range))
+              assert.deepEqual(await buffer.findInRange(pattern, range), reference.findInRangeSync(pattern, range))
+              assert.deepEqual(await buffer.findAllInRange(pattern, range), reference.findAllInRangeSync(pattern, range))
+            }
           }
+          const snapshotSearch = buffer.findAll(/\n/)
+          buffer.setTextInRange(Range(Point(2, 0), Point(2, 1)), 'Z')
+          assert.deepEqual(await snapshotSearch, reference.findAllSync(/\n/))
         }
-        const snapshotSearch = buffer.findAll(/\n/)
-        buffer.setTextInRange(Range(Point(2, 0), Point(2, 1)), 'Z')
-        assert.deepEqual(await snapshotSearch, reference.findAllSync(/\n/))
       }
     })
 

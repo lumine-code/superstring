@@ -271,9 +271,11 @@ struct TextBuffer::Layer {
     range.start = clip_position(range.start).position;
     range.end = clip_position(range.end).position;
 
-    // Only a match boundary at LF can lose its preceding CR across patch
-    // chunks. Normalize those reported points against this layer, but retain
-    // the raw search cursor so empty matches still advance past the LF.
+    // Only a boundary at the slice's first LF can lose its preceding CR from
+    // another chunk. Later LF boundaries have that context in the same Text
+    // and are already clipped by TextSlice::position_for_offset. Normalize
+    // leading-LF output points, but retain the raw search cursor so empty
+    // matches still advance past LF without materializing the buffer.
     auto report_match = [&](Range match, bool start_at_lf, bool end_at_lf) {
       if (uses_patch) {
         if (start_at_lf) match.start = clip_position(match.start).position;
@@ -388,10 +390,9 @@ struct TextBuffer::Layer {
 
           case MatchResult::Full:
             if (uses_patch) {
-              last_match_start_at_lf = match_result.start_offset < slice_to_search.size() &&
-                slice_to_search.data()[match_result.start_offset] == '\n';
-              last_match_end_at_lf = match_result.end_offset < slice_to_search.size() &&
-                slice_to_search.data()[match_result.end_offset] == '\n';
+              bool slice_starts_at_lf = !slice_to_search.empty() && slice_to_search.front() == '\n';
+              last_match_start_at_lf = match_result.start_offset == 0 && slice_starts_at_lf;
+              last_match_end_at_lf = match_result.end_offset == 0 && slice_starts_at_lf;
             }
             Point match_start_position = slice_to_search.position_for_offset(
               match_result.start_offset,
