@@ -4,14 +4,14 @@ const fs = require('fs')
 const path = require('path')
 const {spawnSync} = require('child_process')
 
-const testsPath = path.resolve(__dirname, '..', 'build', 'Debug', 'tests')
+const testsPath = path.resolve(__dirname, '..', 'build', 'Debug', process.platform === 'win32' ? 'tests.exe' : 'tests')
 const dotPath = path.resolve(__dirname, '..', 'build', 'debug.dot')
 const htmlPath = path.join(__dirname, '..', 'build', 'debug.html')
 
 if (fs.existsSync(testsPath)) {
-  run('node-gyp', ['build'])
+  build(['build', '--debug'])
 } else {
-  run('node-gyp', ['rebuild', '--debug', '--tests'])
+  build(['rebuild', '--debug', '--tests'])
 }
 
 const args = process.argv.slice(2)
@@ -43,7 +43,7 @@ switch (args[0]) {
     spawnSync('dot', ['-Tsvg'], {stdio: [dotFile, htmlFile, 2]})
     spawnSync('open', [htmlPath])
 
-    process.exit(status)
+    process.exit(status ?? 1)
     break
 
   default:
@@ -51,7 +51,17 @@ switch (args[0]) {
     break
 }
 
+function build(args) {
+  const nodeGypPath = process.env.npm_config_node_gyp
+  if (nodeGypPath) {
+    run(process.execPath, [nodeGypPath, ...args])
+  } else {
+    run('node-gyp', args)
+  }
+}
+
 function run(command, args = [], options = {stdio: 'inherit'}) {
-  const {status} = spawnSync(command, args, options)
-  if (status !== 0) process.exit(status)
+  const {status, error} = spawnSync(command, args, options)
+  if (error) console.error(error)
+  if (status !== 0) process.exit(status ?? 1)
 }

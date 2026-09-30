@@ -190,6 +190,13 @@
                     ['node_version_major>=18', {
                         "defines+": ["CATCH_CONFIG_CPP17_STRING_VIEW"]
                     }],
+                    ['OS=="win"', {
+                        "msvs_settings": {
+                            "VCCLCompilerTool": {
+                                "AdditionalOptions": ["/utf-8"]
+                            }
+                        }
+                    }],
                     ['OS=="mac"', {
                         'dependencies+': [
                             'build_libiconv'
