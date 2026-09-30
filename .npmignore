@@ -3,7 +3,6 @@
 !README.md
 !LICENSE
 !index.js
-!browser.js
 !src/core/*
 !src/bindings/*.h
 !src/bindings/*.cc

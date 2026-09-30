@@ -4,8 +4,6 @@ build
 .clang_complete
 ext
 
-/browser.js
-emsdk-portable
 
 vendor/libiconv
 .vscode
