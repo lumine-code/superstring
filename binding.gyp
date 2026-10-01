@@ -111,6 +111,7 @@
 
     "variables": {
         "tests": 0,
+        "mac_deployment_target%": "13.5",
         "node_version_major%": "<!(node -p \"process.versions.node.split('.')[0]\")"
     },
 
@@ -125,10 +126,14 @@
                             "action_name": "Run script",
                             "message": "Building GNU libiconv...",
                             "inputs": ["<(module_root_dir)/script/fetch-libiconv-61.sh"],
-                            "outputs": ["<(module_root_dir)/ext/lib/libiconv.2.dylib"],
+                            "outputs": [
+                                "<(module_root_dir)/ext/lib/libiconv.2.dylib",
+                                "<(module_root_dir)/ext/libiconv-deployment-target-<(mac_deployment_target)"
+                            ],
                             "action": [
                                 "bash",
-                                "script/fetch-libiconv-61.sh"
+                                "script/fetch-libiconv-61.sh",
+                                "<(mac_deployment_target)"
                             ]
                         }
                     ]
@@ -184,11 +189,11 @@
                             'build_libiconv'
                         ],
                         'cflags': [
-                            '-mmacosx-version-min=10.8'
+                            '-mmacosx-version-min=<(mac_deployment_target)'
                         ],
                         "xcode_settings": {
                             "GCC_ENABLE_CPP_EXCEPTIONS": "YES",
-                            'MACOSX_DEPLOYMENT_TARGET': '10.12',
+                            'MACOSX_DEPLOYMENT_TARGET': '<(mac_deployment_target)',
                         },
                         "postbuilds": [
                             {
@@ -224,7 +229,7 @@
                 'cflags+': ['-fvisibility=hidden'],
                 'cflags_cc+': ['-fvisibility=hidden'],
                 "xcode_settings": {
-                    'MACOSX_DEPLOYMENT_TARGET': '10.8',
+                    'MACOSX_DEPLOYMENT_TARGET': '<(mac_deployment_target)',
                     'CLANG_CXX_LIBRARY': 'libc++',
                     'CLANG_CXX_LANGUAGE_STANDARD': 'c++17',
                     'GCC_SYMBOLS_PRIVATE_EXTERN': 'YES',  # -fvisibility=hidden

@@ -17,6 +17,9 @@ jobs:
   test:
     name: Node ${{ matrix.node }} on ${{ matrix.os }}
     runs-on: ${{ matrix.os }}
+    env:
+      MACOSX_DEPLOYMENT_TARGET: "13.5"
+      GYP_DEFINES: "mac_deployment_target=13.5"
     strategy:
       fail-fast: false
       matrix:
@@ -37,7 +40,13 @@ jobs:
           node-version: ${{ matrix.node }}
       - name: Install dependencies
         run: npm ci
+      - name: Validate macOS release library
+        if: runner.os == 'macOS'
+        run: node script/check-macos-build.js build/Release
       - name: Run tests
         run: npm run test:node && npm run test:native
+      - name: Validate macOS debug libraries
+        if: runner.os == 'macOS'
+        run: node script/check-macos-build.js build/Debug
       - name: Validate package contents
         run: npm pack --dry-run

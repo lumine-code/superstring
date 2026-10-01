@@ -30,14 +30,27 @@ usage() {
   echoerr "superstring requires the GNU libiconv library, which macOS no longer bundles in recent versions. This package attempts to compile it from GitHub. If you're seeing this message, something has gone wrong; check the README for information and consider filing an issue."
 }
 
+# Gyp supplies the same configured minimum to the addon, tests and this build.
+# A direct invocation may instead provide it through the compiler environment.
+deployment_target="${1:-${MACOSX_DEPLOYMENT_TARGET:-13.5}}"
+if [[ ! "$deployment_target" =~ ^[0-9]+(\.[0-9]+){1,2}$ ]]; then
+  echoerr "Pass a macOS deployment target, such as 13.5."
+  exit 1
+fi
+export MACOSX_DEPLOYMENT_TARGET="$deployment_target"
+
 # Identify the directory of this script.
 SCRIPT_DIR=$( cd -- "$( dirname -- "${BASH_SOURCE[0]}" )" &> /dev/null && pwd )
 
 ROOT="$SCRIPT_DIR/.."
 SCRATCH="$ROOT/scratch"
 EXT="$ROOT/ext"
+stamp_tmp=""
 
 cleanup() {
+  if [ -n "$stamp_tmp" ]; then
+    rm -f "$stamp_tmp"
+  fi
   if [ -d "$SCRATCH" ]; then
     rm -rf "$SCRATCH"
   fi
@@ -48,11 +61,19 @@ create-if-missing "$EXT"
 create-if-missing "$SCRATCH"
 
 dylib_path="$EXT/lib/libiconv.2.dylib"
+target_stamp="$EXT/libiconv-deployment-target-$deployment_target"
+recorded_target=""
+if [ -f "$target_stamp" ]; then
+  recorded_target="$(cat "$target_stamp")"
+fi
 
-# If this path already exists, we'll assume libiconv has already been fetched
-# and compiled. Otherwise we'll do it now.
-if [ ! -e "$dylib_path" ]; then
-  echo "Path $dylib_path is missing; fetching and installing libiconv."
+# A library compiled for the host's newer OS cannot accompany an addon whose
+# minimum is older. Target-specific output names also invalidate Gyp's action
+# when a caller changes the configured minimum during an incremental build.
+if [ ! -e "$dylib_path" ] || [ "$recorded_target" != "$deployment_target" ]; then
+  echo "Building libiconv for macOS $deployment_target."
+  # A failed build must never leave a stamp claiming its partial output is usable.
+  rm -f "$EXT"/libiconv-deployment-target-*
   cd "$SCRATCH"
   # TODO: Instead of downloading this each time, we can check this into source
   # control via git subtree. That would allow someone to build this without
@@ -79,7 +100,7 @@ if [ ! -e "$dylib_path" ]; then
   cp "COPYING.LIB" "$EXT"
   cp "README" "$EXT"
 else
-  echo "Path $dylib_path is already present; skipping installation of libiconv."
+  echo "Path $dylib_path already targets macOS $deployment_target; skipping installation of libiconv."
 fi
 
 cd "$ROOT"
@@ -101,5 +122,10 @@ fi
 # further details.
 
 install_name_tool -id "libiconv.2.dylib" "${dylib_path}"
+
+stamp_tmp="$(mktemp "$EXT/.libiconv-deployment-target.XXXXXX")"
+printf '%s\n' "$deployment_target" > "$stamp_tmp"
+mv -f "$stamp_tmp" "$target_stamp"
+stamp_tmp=""
 
 cleanup
