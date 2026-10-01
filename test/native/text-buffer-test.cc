@@ -19,9 +19,9 @@ using SubsequenceMatch = TextBuffer::SubsequenceMatch;
 
 TEST_CASE("optional - equality and contextual truth preserve the value") {
   const optional<Range> empty;
-  const optional<Range> value(Range(Point(0, 1), Point(0, 3)));
-  const optional<Range> equal(Range(Point(0, 1), Point(0, 3)));
-  const optional<Range> different(Range(Point(0, 1), Point(0, 4)));
+  const optional<Range> value(Range{Point(0, 1), Point(0, 3)});
+  const optional<Range> equal(Range{Point(0, 1), Point(0, 3)});
+  const optional<Range> different(Range{Point(0, 1), Point(0, 4)});
 
   REQUIRE(empty == optional<Range>());
   REQUIRE(value == equal);
