@@ -473,8 +473,15 @@ void MarkerIndex::set_exclusive(MarkerId id, bool exclusive) {
 }
 
 void MarkerIndex::remove(MarkerId id) {
-  Node *start_node = start_nodes_by_id.find(id)->second;
-  Node *end_node = end_nodes_by_id.find(id)->second;
+  auto start_entry = start_nodes_by_id.find(id);
+  auto end_entry = end_nodes_by_id.find(id);
+  if (start_entry == start_nodes_by_id.end() ||
+      end_entry == end_nodes_by_id.end()) {
+    return;
+  }
+
+  Node *start_node = start_entry->second;
+  Node *end_node = end_entry->second;
 
   Node *node = start_node;
   while (node) {

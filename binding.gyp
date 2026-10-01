@@ -37,26 +37,23 @@
                 ['OS=="mac"', {
                     "postbuilds": [
                         {
+                            'postbuild_name': 'Copy vendored libiconv next to the binding',
+                            'action': [
+                                'bash',
+                                '<(module_root_dir)/script/copy-libiconv.sh',
+                                '<(module_root_dir)/ext/lib/libiconv.2.dylib',
+                                '<(PRODUCT_DIR)/libiconv.2.dylib'
+                            ]
+                        },
+                        {
                             'postbuild_name': 'Adjust vendored libiconv install name',
                             'action': [
                                 'install_name_tool',
                                 "-change",
                                 "libiconv.2.dylib",
-                                "@loader_path/../../ext/lib/libiconv.2.dylib",
+                                "@loader_path/libiconv.2.dylib",
                                 "<(PRODUCT_DIR)/superstring.node"
                             ]
-
-                            # NOTE: This version of the post-build action
-                            # should be used if we find it necessary to avoid
-                            # changing the `dylib`’s install name in an earlier
-                            # step.
-                            #
-                            # 'action': [
-                            #     'bash',
-                            #     '<(module_root_dir)/script/adjust-install-name.sh',
-                            #     '<(PRODUCT_DIR)'
-                            # ]
-
                         }
                     ]
                 }]
@@ -127,8 +124,8 @@
                         {
                             "action_name": "Run script",
                             "message": "Building GNU libiconv...",
-                            "inputs": [],
-                            "outputs": ["ext"],
+                            "inputs": ["<(module_root_dir)/script/fetch-libiconv-61.sh"],
+                            "outputs": ["<(module_root_dir)/ext/lib/libiconv.2.dylib"],
                             "action": [
                                 "bash",
                                 "script/fetch-libiconv-61.sh"
@@ -136,22 +133,6 @@
                         }
                     ]
                 }
-                # {
-                #     "target_name": "find_libiconv",
-                #     "target_type": "none",
-                #     "actions": [
-                #         {
-                #             "action_name": "Run script",
-                #             "message": "Locating GNU libiconv...",
-                #             "inputs": [],
-                #             "outputs": ["vendor/libiconv/lib/libiconv.2.dylib"],
-                #             "action": [
-                #                 "bash",
-                #                 "script/find-gnu-libiconv.sh"
-                #             ]
-                #         }
-                #     ]
-                # }
             ]
         }],
 
@@ -211,25 +192,23 @@
                         },
                         "postbuilds": [
                             {
+                                'postbuild_name': 'Copy vendored libiconv next to the binding',
+                                'action': [
+                                    'bash',
+                                    '<(module_root_dir)/script/copy-libiconv.sh',
+                                    '<(module_root_dir)/ext/lib/libiconv.2.dylib',
+                                    '<(PRODUCT_DIR)/libiconv.2.dylib'
+                                ]
+                            },
+                            {
                                 'postbuild_name': 'Adjust vendored libiconv install name',
                                 'action': [
                                   'install_name_tool',
                                   "-change",
                                   "libiconv.2.dylib",
-                                  "@executable_path/../../ext/lib/libiconv.2.dylib",
+                                  "@executable_path/libiconv.2.dylib",
                                   "<(PRODUCT_DIR)/tests"
                                 ]
-
-                                # NOTE: This version of the post-build action
-                                # should be used if we find it necessary to avoid
-                                # changing the `dylib`’s install name in an earlier
-                                # step.
-                                #
-                                # 'action': [
-                                #     'bash',
-                                #     '<(module_root_dir)/script/adjust-install-name.sh',
-                                #     '<(PRODUCT_DIR)'
-                                # ]
                             }
                         ]
                     }]

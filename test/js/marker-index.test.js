@@ -5,6 +5,40 @@ const {MarkerIndex} = require('../..')
 const MAX_INT32 = 4294967296
 
 describe('MarkerIndex', () => {
+  describe('remove with an unknown id', () => {
+    it('ignores a removal from an empty index', () => {
+      const index = new MarkerIndex(1)
+      index.remove(1)
+      assert.isFalse(index.has(1))
+      assert.deepEqual(index.dump(), {})
+    })
+
+    it('keeps surrounding markers intact after repeated and unknown removals', () => {
+      const index = new MarkerIndex(1)
+      index.insert(1, {row: 0, column: 0}, {row: 0, column: 5})
+      index.insert(2, {row: 1, column: 0}, {row: 1, column: 5})
+      index.setExclusive(1, true)
+      index.setExclusive(2, true)
+
+      index.remove(999)
+      assert.isTrue(index.has(1))
+      assert.deepEqual(index.getRange(1), {start: {row: 0, column: 0}, end: {row: 0, column: 5}})
+
+      index.remove(1)
+      index.remove(1)
+      index.remove(999)
+      assert.isFalse(index.has(1))
+      assert.isTrue(index.has(2))
+      assert.deepEqual(index.getRange(2), {start: {row: 1, column: 0}, end: {row: 1, column: 5}})
+      assert.deepEqual([...index.findIntersecting({row: 0, column: 0}, {row: 2, column: 0})], [2])
+
+      index.insert(3, {row: 1, column: 1}, {row: 1, column: 2})
+      index.splice({row: 1, column: 0}, {row: 0, column: 0}, {row: 0, column: 2})
+      assert.deepEqual(index.getRange(2), {start: {row: 1, column: 2}, end: {row: 1, column: 7}})
+      assert.deepEqual(index.getRange(3), {start: {row: 1, column: 3}, end: {row: 1, column: 4}})
+    })
+  })
+
   describe('packed marker transfer', () => {
     const point = (row, column) => ({row, column})
     const zero = point(0, 0)

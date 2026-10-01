@@ -9,12 +9,28 @@
 
 using std::move;
 using std::pair;
+
 using std::string;
 using std::stringstream;
 using std::vector;
 using std::u16string;
 using MatchResult = Regex::MatchResult;
 using SubsequenceMatch = TextBuffer::SubsequenceMatch;
+
+TEST_CASE("optional - equality and contextual truth preserve the value") {
+  const optional<Range> empty;
+  const optional<Range> value(Range(Point(0, 1), Point(0, 3)));
+  const optional<Range> equal(Range(Point(0, 1), Point(0, 3)));
+  const optional<Range> different(Range(Point(0, 1), Point(0, 4)));
+
+  REQUIRE(empty == optional<Range>());
+  REQUIRE(value == equal);
+  REQUIRE(!(value == different));
+  REQUIRE(!(value == empty));
+  REQUIRE(!empty);
+  REQUIRE((value && equal));
+  REQUIRE((value ? value->end.column : 0) == 3);
+}
 
 TEST_CASE("TextBuffer::set_text_in_range - basic") {
   TextBuffer buffer{u"abc\ndef\nghi"};
