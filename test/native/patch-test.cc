@@ -5,6 +5,28 @@ using std::vector;
 
 static optional<Text> null_text;
 
+TEST_CASE("Patch::splice - rejects inconsistent prefixes without changing the patch") {
+  for (bool has_later_change : {false, true}) {
+    for (uint32_t column : {2u, 4u}) {
+      Patch patch;
+      REQUIRE(patch.splice(Point(0, 0), Point(0, 1), Point(2, 0), Text(u"x"), Text(u"a\n\n")));
+      if (has_later_change) {
+        REQUIRE(patch.splice(Point(4, 0), Point(0, 1), Point(0, 1), Text(u"y"), Text(u"z")));
+      }
+      Patch before = patch.copy();
+      Point deletion_extent(has_later_change ? 3 : 1, 0);
+      Text deleted_text(has_later_change ? u"\n\n\n" : u"\n");
+
+      REQUIRE(!patch.splice(Point(0, column), deletion_extent, Point(0, 1),
+                            std::move(deleted_text), Text(u"b")));
+      REQUIRE(patch.get_changes() == before.get_changes());
+
+      REQUIRE(patch.splice(Point(0, 1), Point(0, 0), Point(0, 1), Text(u""), Text(u"c")));
+      REQUIRE(*patch.get_changes().front().new_text == Text(u"ac\n\n"));
+    }
+  }
+}
+
 TEST_CASE("Patch::splice – simple non-overlapping") {
   Patch patch;
 

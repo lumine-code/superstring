@@ -575,6 +575,29 @@ describe('Patch', function () {
     }
   })
 
+  for (const hasLaterChange of [false, true]) {
+    for (const column of [2, 4]) {
+      it(`rejects an inconsistent prefix at column ${column} ${hasLaterChange ? 'before a later change' : 'within one change'} without altering the patch`, () => {
+        const patch = new Patch()
+        patch.splice({row: 0, column: 0}, {row: 0, column: 1}, {row: 2, column: 0}, 'x', 'a\n\n')
+        if (hasLaterChange) {
+          patch.splice({row: 4, column: 0}, {row: 0, column: 1}, {row: 0, column: 1}, 'y', 'z')
+        }
+        const before = patch.getChanges()
+        const deletionExtent = {row: hasLaterChange ? 3 : 1, column: 0}
+        const deletedText = hasLaterChange ? '\n\n\n' : '\n'
+
+        assert.throws(() => patch.splice(
+          {row: 0, column}, deletionExtent, {row: 0, column: 1}, deletedText, 'b'
+        ), 'Patch does not apply')
+        assert.deepEqual(patch.getChanges(), before)
+
+        patch.splice({row: 0, column: 1}, {row: 0, column: 0}, {row: 0, column: 1}, '', 'c')
+        assert.equal(patch.getChanges()[0].newText, 'ac\n\n')
+      })
+    }
+  }
+
   it('does not crash when inconsistent splices are applied', () => {
 
     for (let i = 0; i < 100; i++) {
