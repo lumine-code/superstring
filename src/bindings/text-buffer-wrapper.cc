@@ -1153,7 +1153,8 @@ class BaseTextComparisonWorker : public AsyncWorker {
 
   void Execute() override {
     u16string file_contents = load_file(file_name, encoding_name, &error, [](size_t progress) {});
-    result = std::equal(file_contents.begin(), file_contents.end(), snapshot->base_text().begin());
+    const Text &base_text = snapshot->base_text();
+    result = std::equal(file_contents.begin(), file_contents.end(), base_text.begin(), base_text.end());
   }
 
   void OnOK() override {
@@ -1190,7 +1191,8 @@ void TextBufferWrapper::base_text_matches_file(const CallbackInfo &info) {
     ))->Queue();
   } else {
     auto file_contents = TextWriter::Unwrap(info[1].As<Object>())->get_text();
-    bool result = std::equal(file_contents.begin(), file_contents.end(), text_buffer.base_text().begin());
+    const Text &base_text = text_buffer.base_text();
+    bool result = std::equal(file_contents.begin(), file_contents.end(), base_text.begin(), base_text.end());
     auto callback = info[0].As<Function>();
     callback.Call({env.Null(), Boolean::New(env, result)});
   }

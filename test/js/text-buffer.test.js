@@ -2,7 +2,7 @@ const fs = require('fs')
 const os = require('os')
 const path = require('path')
 const {randomUUID} = require('crypto')
-const {Writable} = require('stream')
+const {Readable, Writable} = require('stream')
 const {assert} = require('./helpers/assert')
 const {TextBuffer, MarkerIndex} = require('../..')
 const Random = require('random-seed')
@@ -487,6 +487,30 @@ describe('TextBuffer', () => {
 
   describe('.baseTextMatchesFile', () => {
     if (!TextBuffer.prototype.baseTextMatchesFile) return;
+
+    for (const asStream of [false, true]) {
+      it(`compares complete saved text with ${asStream ? 'stream' : 'file'} contents without including unsaved edits`, async () => {
+        for (const baseText of ['abc', '']) {
+          const buffer = new TextBuffer(baseText)
+          const position = {row: 0, column: baseText.length}
+          buffer.setTextInRange({start: position, end: position}, ' unsaved')
+          const {path: filePath} = temp.openSync()
+
+          for (const content of ['abc', 'ab', 'abcd', '']) {
+            let source
+            if (asStream) {
+              source = Readable.from([Buffer.from(content)])
+            } else {
+              fs.writeFileSync(filePath, content)
+              source = filePath
+            }
+            assert.equal(await buffer.baseTextMatchesFile(source), content === baseText)
+            assert.equal(buffer.getText(), baseText + ' unsaved')
+            assert.isTrue(buffer.isModified())
+          }
+        }
+      })
+    }
 
     it('indicates whether the base text matches the contents of the given file path', () => {
       const content = 'abc'
