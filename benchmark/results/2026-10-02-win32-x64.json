@@ -1,0 +1,1464 @@
+{
+  "date": "2026-10-02",
+  "beforeCommit": "3d785eb",
+  "afterCommit": "d5e5275",
+  "general": {
+    "environment": {
+      "node": "v24.18.0",
+      "v8": "13.6.233.17-node.50",
+      "napi": "10",
+      "platform": "win32",
+      "architecture": "x64",
+      "cpu": "Intel(R) Core(TM) i9-10900K CPU @ 3.70GHz",
+      "logicalCpus": 20,
+      "binding": "before.node",
+      "bindingSha256": "bfc94478fecbde55406ae020f761145741e984baf1242d5cbb85d0bf1711437b",
+      "comparisonBinding": "after.node",
+      "comparisonBindingSha256": "2401825b89961caccdd03907b4e76b915b1ae288a7182a5b58d56f586f46eb38",
+      "gcBetweenSamples": true
+    },
+    "methodology": {
+      "samples": 9,
+      "warmups": 2,
+      "statistic": "median",
+      "unit": "ms per batch",
+      "setupTimed": false,
+      "pairedComparison": true,
+      "order": "Alternate baseline-first and comparison-first within each warmup and sample"
+    },
+    "results": [
+      {
+        "name": "text/construct/1M UTF-16 units",
+        "workload": {
+          "utf16Units": 1000034,
+          "rows": 16395,
+          "operations": 1
+        },
+        "baseline": {
+          "medianMs": 1.5112,
+          "minMs": 1.4367,
+          "maxMs": 1.5595,
+          "samplesMs": [
+            1.5204,
+            1.4694,
+            1.559,
+            1.553,
+            1.487,
+            1.5595,
+            1.437,
+            1.5112,
+            1.4367
+          ]
+        },
+        "comparison": {
+          "medianMs": 1.4507,
+          "minMs": 1.4017,
+          "maxMs": 1.5673,
+          "samplesMs": [
+            1.4551,
+            1.4732,
+            1.5673,
+            1.4507,
+            1.4186,
+            1.4017,
+            1.4593,
+            1.4128,
+            1.4232
+          ]
+        },
+        "speedup": 1.0417040049631212,
+        "pairedSpeedupMedian": 1.0448766407807022
+      },
+      {
+        "name": "text/setText/1M UTF-16 units",
+        "workload": {
+          "utf16Units": 1000034,
+          "rows": 16395,
+          "operations": 1
+        },
+        "baseline": {
+          "medianMs": 2.9256,
+          "minMs": 2.8659,
+          "maxMs": 4.0717,
+          "samplesMs": [
+            2.9357,
+            3.1622,
+            2.8828,
+            3.0189,
+            4.0717,
+            2.9256,
+            2.88,
+            2.8982,
+            2.8659
+          ]
+        },
+        "comparison": {
+          "medianMs": 2.4777,
+          "minMs": 2.4478,
+          "maxMs": 3.2807,
+          "samplesMs": [
+            2.4995,
+            2.5266,
+            2.4777,
+            2.4478,
+            2.4627,
+            2.4517,
+            2.4656,
+            3.2807,
+            2.634
+          ]
+        },
+        "speedup": 1.1807724906162975,
+        "pairedSpeedupMedian": 1.1745149029805964
+      },
+      {
+        "name": "text/getText/1M UTF-16 units",
+        "workload": {
+          "utf16Units": 1000034,
+          "rows": 16395,
+          "operations": 1
+        },
+        "baseline": {
+          "medianMs": 2.2555,
+          "minMs": 0.6817,
+          "maxMs": 2.8608,
+          "samplesMs": [
+            0.6817,
+            2.8608,
+            2.2555,
+            2.7115,
+            2.652,
+            2.2815,
+            1.3305,
+            1.4828,
+            1.2552
+          ]
+        },
+        "comparison": {
+          "medianMs": 2.3186,
+          "minMs": 1.4159,
+          "maxMs": 3.0885,
+          "samplesMs": [
+            2.3393,
+            1.9823,
+            3.0885,
+            2.4009,
+            2.3186,
+            2.4875,
+            1.4159,
+            1.5429,
+            1.742
+          ]
+        },
+        "speedup": 0.9727853014750281,
+        "pairedSpeedupMedian": 0.9396850060032489
+      },
+      {
+        "name": "text/randomLines/1M UTF-16 units",
+        "workload": {
+          "utf16Units": 1000034,
+          "rows": 16395,
+          "operations": 10000
+        },
+        "baseline": {
+          "medianMs": 6.0486,
+          "minMs": 4.5684,
+          "maxMs": 8.3116,
+          "samplesMs": [
+            7.7954,
+            5.0597,
+            8.3116,
+            6.8486,
+            6.2244,
+            5.5754,
+            5.5952,
+            6.0486,
+            4.5684
+          ]
+        },
+        "comparison": {
+          "medianMs": 5.5444,
+          "minMs": 3.3896,
+          "maxMs": 8.4049,
+          "samplesMs": [
+            6.4867,
+            6.7695,
+            8.4049,
+            8.4007,
+            5.4915,
+            5.5444,
+            4.9952,
+            5.5221,
+            3.3896
+          ]
+        },
+        "speedup": 1.0909386047182743,
+        "pairedSpeedupMedian": 1.0953441625468572
+      },
+      {
+        "name": "text/insert-start/1M UTF-16 units",
+        "workload": {
+          "utf16Units": 1000034,
+          "rows": 16395,
+          "operations": 250
+        },
+        "baseline": {
+          "medianMs": 0.4303,
+          "minMs": 0.4125,
+          "maxMs": 0.6394,
+          "samplesMs": [
+            0.6394,
+            0.4303,
+            0.4236,
+            0.4468,
+            0.4243,
+            0.5701,
+            0.4125,
+            0.4389,
+            0.4284
+          ]
+        },
+        "comparison": {
+          "medianMs": 0.4379,
+          "minMs": 0.4157,
+          "maxMs": 0.9275,
+          "samplesMs": [
+            0.7449,
+            0.4379,
+            0.4327,
+            0.9275,
+            0.5188,
+            0.4157,
+            0.4336,
+            0.4485,
+            0.4271
+          ]
+        },
+        "speedup": 0.9826444393697191,
+        "pairedSpeedupMedian": 0.9785953177257525
+      },
+      {
+        "name": "text/insert-middle/1M UTF-16 units",
+        "workload": {
+          "utf16Units": 1000034,
+          "rows": 16395,
+          "operations": 250
+        },
+        "baseline": {
+          "medianMs": 0.4233,
+          "minMs": 0.4095,
+          "maxMs": 0.7375,
+          "samplesMs": [
+            0.7354,
+            0.4223,
+            0.4095,
+            0.4201,
+            0.4419,
+            0.4205,
+            0.7375,
+            0.4233,
+            0.6872
+          ]
+        },
+        "comparison": {
+          "medianMs": 0.4402,
+          "minMs": 0.4123,
+          "maxMs": 0.7622,
+          "samplesMs": [
+            0.694,
+            0.749,
+            0.4402,
+            0.4354,
+            0.426,
+            0.6983,
+            0.438,
+            0.4123,
+            0.7622
+          ]
+        },
+        "speedup": 0.961608359836438,
+        "pairedSpeedupMedian": 0.9648598989435001
+      },
+      {
+        "name": "text/insert-end/1M UTF-16 units",
+        "workload": {
+          "utf16Units": 1000034,
+          "rows": 16395,
+          "operations": 250
+        },
+        "baseline": {
+          "medianMs": 0.5632,
+          "minMs": 0.4192,
+          "maxMs": 0.7975,
+          "samplesMs": [
+            0.7626,
+            0.5632,
+            0.7284,
+            0.4232,
+            0.4381,
+            0.4192,
+            0.4367,
+            0.7975,
+            0.6571
+          ]
+        },
+        "comparison": {
+          "medianMs": 0.5216,
+          "minMs": 0.4084,
+          "maxMs": 0.8212,
+          "samplesMs": [
+            0.759,
+            0.7634,
+            0.5216,
+            0.4878,
+            0.42,
+            0.4084,
+            0.8212,
+            0.444,
+            0.7069
+          ]
+        },
+        "speedup": 1.079754601226994,
+        "pairedSpeedupMedian": 1.0047430830039525
+      },
+      {
+        "name": "search/absent/1M UTF-16 units",
+        "workload": {
+          "utf16Units": 1000034,
+          "rows": 16395,
+          "operations": 1
+        },
+        "baseline": {
+          "medianMs": 0.3643,
+          "minMs": 0.3491,
+          "maxMs": 0.4116,
+          "samplesMs": [
+            0.4116,
+            0.3677,
+            0.3564,
+            0.3643,
+            0.4055,
+            0.353,
+            0.3491,
+            0.35,
+            0.3785
+          ]
+        },
+        "comparison": {
+          "medianMs": 0.3558,
+          "minMs": 0.3498,
+          "maxMs": 0.4356,
+          "samplesMs": [
+            0.3669,
+            0.4003,
+            0.3702,
+            0.352,
+            0.3558,
+            0.3498,
+            0.355,
+            0.3545,
+            0.4356
+          ]
+        },
+        "speedup": 1.0238898257448004,
+        "pairedSpeedupMedian": 0.9873060648801129
+      },
+      {
+        "name": "search/frequent/1M UTF-16 units",
+        "workload": {
+          "utf16Units": 1000034,
+          "rows": 16395,
+          "operations": 1
+        },
+        "baseline": {
+          "medianMs": 2.0052,
+          "minMs": 1.9168,
+          "maxMs": 3.8289,
+          "samplesMs": [
+            2.363,
+            3.8289,
+            2.0567,
+            2.0997,
+            1.9386,
+            1.9236,
+            2.0052,
+            1.9325,
+            1.9168
+          ]
+        },
+        "comparison": {
+          "medianMs": 2.0392,
+          "minMs": 1.8952,
+          "maxMs": 3.171,
+          "samplesMs": [
+            2.614,
+            3.171,
+            2.0392,
+            2.1065,
+            2.0852,
+            1.9073,
+            1.9752,
+            1.8952,
+            2.0108
+          ]
+        },
+        "speedup": 0.9833267948214985,
+        "pairedSpeedupMedian": 1.0085461123053532
+      },
+      {
+        "name": "text/construct/8M UTF-16 units",
+        "workload": {
+          "utf16Units": 8000028,
+          "rows": 131149,
+          "operations": 1
+        },
+        "baseline": {
+          "medianMs": 11.095,
+          "minMs": 10.7675,
+          "maxMs": 15.6144,
+          "samplesMs": [
+            15.6144,
+            10.9586,
+            13.3388,
+            10.7675,
+            10.9304,
+            11.095,
+            11.0647,
+            11.6454,
+            12.7417
+          ]
+        },
+        "comparison": {
+          "medianMs": 11.0975,
+          "minMs": 10.9481,
+          "maxMs": 11.4865,
+          "samplesMs": [
+            11.4865,
+            10.9481,
+            11.3295,
+            10.9491,
+            10.9608,
+            11.0975,
+            11.1068,
+            11.2036,
+            11.0666
+          ]
+        },
+        "speedup": 0.9997747240369453,
+        "pairedSpeedupMedian": 1.0009590705236526
+      },
+      {
+        "name": "text/setText/8M UTF-16 units",
+        "workload": {
+          "utf16Units": 8000028,
+          "rows": 131149,
+          "operations": 1
+        },
+        "baseline": {
+          "medianMs": 24.9163,
+          "minMs": 22.6541,
+          "maxMs": 30.5216,
+          "samplesMs": [
+            23.9162,
+            23.1524,
+            22.6541,
+            25.0014,
+            30.5216,
+            24.9163,
+            24.2562,
+            26.3673,
+            25.0511
+          ]
+        },
+        "comparison": {
+          "medianMs": 20.6992,
+          "minMs": 19.2585,
+          "maxMs": 35.6318,
+          "samplesMs": [
+            19.2585,
+            20.6992,
+            35.6318,
+            21.8848,
+            26.7061,
+            19.6927,
+            20.0541,
+            20.5315,
+            26.1419
+          ]
+        },
+        "speedup": 1.2037325114014068,
+        "pairedSpeedupMedian": 1.1428699810155731
+      },
+      {
+        "name": "text/getText/8M UTF-16 units",
+        "workload": {
+          "utf16Units": 8000028,
+          "rows": 131149,
+          "operations": 1
+        },
+        "baseline": {
+          "medianMs": 5.9696,
+          "minMs": 5.4023,
+          "maxMs": 10.2472,
+          "samplesMs": [
+            5.4023,
+            5.4657,
+            5.9696,
+            5.6311,
+            5.6475,
+            6.8607,
+            6.2439,
+            6.7197,
+            10.2472
+          ]
+        },
+        "comparison": {
+          "medianMs": 5.8958,
+          "minMs": 5.3977,
+          "maxMs": 6.7281,
+          "samplesMs": [
+            6.7239,
+            6.2807,
+            5.8958,
+            5.4994,
+            5.4195,
+            6.7281,
+            5.6355,
+            5.3977,
+            6.0757
+          ]
+        },
+        "speedup": 1.0125173852573017,
+        "pairedSpeedupMedian": 1.0239480670618613
+      },
+      {
+        "name": "text/randomLines/8M UTF-16 units",
+        "workload": {
+          "utf16Units": 8000028,
+          "rows": 131149,
+          "operations": 10000
+        },
+        "baseline": {
+          "medianMs": 5.3765,
+          "minMs": 3.9505,
+          "maxMs": 6.7472,
+          "samplesMs": [
+            4.0334,
+            6.7472,
+            5.3765,
+            6.4544,
+            6.3597,
+            4.2865,
+            4.4175,
+            6.2208,
+            3.9505
+          ]
+        },
+        "comparison": {
+          "medianMs": 5.0755,
+          "minMs": 4.0364,
+          "maxMs": 6.8744,
+          "samplesMs": [
+            5.5123,
+            4.719,
+            6.1903,
+            4.374,
+            5.0755,
+            4.3119,
+            6.2024,
+            4.0364,
+            6.8744
+          ]
+        },
+        "speedup": 1.0593045020195055,
+        "pairedSpeedupMedian": 0.9941093253554119
+      },
+      {
+        "name": "text/insert-start/8M UTF-16 units",
+        "workload": {
+          "utf16Units": 8000028,
+          "rows": 131149,
+          "operations": 250
+        },
+        "baseline": {
+          "medianMs": 0.438,
+          "minMs": 0.4233,
+          "maxMs": 0.9256,
+          "samplesMs": [
+            0.4527,
+            0.4289,
+            0.4294,
+            0.4233,
+            0.438,
+            0.8037,
+            0.9256,
+            0.428,
+            0.4425
+          ]
+        },
+        "comparison": {
+          "medianMs": 0.43,
+          "minMs": 0.4226,
+          "maxMs": 0.7878,
+          "samplesMs": [
+            0.4295,
+            0.4366,
+            0.7783,
+            0.4226,
+            0.4289,
+            0.7878,
+            0.43,
+            0.4263,
+            0.43
+          ]
+        },
+        "speedup": 1.0186046511627906,
+        "pairedSpeedupMedian": 1.0201827875095202
+      },
+      {
+        "name": "text/insert-middle/8M UTF-16 units",
+        "workload": {
+          "utf16Units": 8000028,
+          "rows": 131149,
+          "operations": 250
+        },
+        "baseline": {
+          "medianMs": 0.4267,
+          "minMs": 0.42,
+          "maxMs": 0.7943,
+          "samplesMs": [
+            0.422,
+            0.426,
+            0.4318,
+            0.4645,
+            0.7943,
+            0.4267,
+            0.42,
+            0.42,
+            0.6857
+          ]
+        },
+        "comparison": {
+          "medianMs": 0.4301,
+          "minMs": 0.4242,
+          "maxMs": 0.8141,
+          "samplesMs": [
+            0.4248,
+            0.4261,
+            0.4301,
+            0.8141,
+            0.4365,
+            0.4402,
+            0.4283,
+            0.4242,
+            0.4341
+          ]
+        },
+        "speedup": 0.9920948616600791,
+        "pairedSpeedupMedian": 0.9934086629001883
+      },
+      {
+        "name": "text/insert-end/8M UTF-16 units",
+        "workload": {
+          "utf16Units": 8000028,
+          "rows": 131149,
+          "operations": 250
+        },
+        "baseline": {
+          "medianMs": 0.452,
+          "minMs": 0.4208,
+          "maxMs": 0.902,
+          "samplesMs": [
+            0.4208,
+            0.7761,
+            0.452,
+            0.4439,
+            0.5412,
+            0.902,
+            0.7111,
+            0.4263,
+            0.4384
+          ]
+        },
+        "comparison": {
+          "medianMs": 0.4334,
+          "minMs": 0.4253,
+          "maxMs": 0.8127,
+          "samplesMs": [
+            0.8089,
+            0.4354,
+            0.4323,
+            0.8127,
+            0.4253,
+            0.4788,
+            0.4304,
+            0.4334,
+            0.4314
+          ]
+        },
+        "speedup": 1.0429164743885557,
+        "pairedSpeedupMedian": 1.0455702058755494
+      },
+      {
+        "name": "search/absent/8M UTF-16 units",
+        "workload": {
+          "utf16Units": 8000028,
+          "rows": 131149,
+          "operations": 1
+        },
+        "baseline": {
+          "medianMs": 2.2848,
+          "minMs": 2.2751,
+          "maxMs": 2.8682,
+          "samplesMs": [
+            2.2758,
+            2.2751,
+            2.28,
+            2.3506,
+            2.2848,
+            2.342,
+            2.2824,
+            2.8682,
+            2.3714
+          ]
+        },
+        "comparison": {
+          "medianMs": 2.2931,
+          "minMs": 2.258,
+          "maxMs": 2.3485,
+          "samplesMs": [
+            2.267,
+            2.3485,
+            2.2878,
+            2.3006,
+            2.2931,
+            2.258,
+            2.2787,
+            2.3029,
+            2.3008
+          ]
+        },
+        "speedup": 0.9963804456848808,
+        "pairedSpeedupMedian": 1.003881782090869
+      },
+      {
+        "name": "search/frequent/8M UTF-16 units",
+        "workload": {
+          "utf16Units": 8000028,
+          "rows": 131149,
+          "operations": 1
+        },
+        "baseline": {
+          "medianMs": 17.4606,
+          "minMs": 15.9618,
+          "maxMs": 30.1259,
+          "samplesMs": [
+            15.9618,
+            17.4606,
+            17.2515,
+            17.4951,
+            16.0751,
+            30.1259,
+            26.9211,
+            16.6365,
+            24.3992
+          ]
+        },
+        "comparison": {
+          "medianMs": 19.7824,
+          "minMs": 15.8046,
+          "maxMs": 36.0807,
+          "samplesMs": [
+            16.2142,
+            15.8046,
+            23.5657,
+            24.6753,
+            16.2278,
+            15.9944,
+            31.0329,
+            36.0807,
+            19.7824
+          ]
+        },
+        "speedup": 0.8826330475574248,
+        "pairedSpeedupMedian": 0.9844333978858038
+      },
+      {
+        "name": "autocomplete/duplicate-words",
+        "workload": {
+          "utf16Units": 400000,
+          "rows": 10001,
+          "operations": 1
+        },
+        "baseline": {
+          "medianMs": 4.5195,
+          "minMs": 4.3722,
+          "maxMs": 4.8478,
+          "samplesMs": [
+            4.6514,
+            4.8478,
+            4.3722,
+            4.776,
+            4.3981,
+            4.4201,
+            4.5229,
+            4.3894,
+            4.5195
+          ]
+        },
+        "comparison": {
+          "medianMs": 4.4287,
+          "minMs": 4.2772,
+          "maxMs": 4.6352,
+          "samplesMs": [
+            4.5665,
+            4.4036,
+            4.6352,
+            4.6275,
+            4.2772,
+            4.3958,
+            4.4287,
+            4.2981,
+            4.5484
+          ]
+        },
+        "speedup": 1.0205026305687899,
+        "pairedSpeedupMedian": 1.0212419441148415
+      },
+      {
+        "name": "autocomplete/unique-words-max10",
+        "workload": {
+          "utf16Units": 240889,
+          "rows": 12000,
+          "maxCount": 10,
+          "operations": 1
+        },
+        "baseline": {
+          "medianMs": 34.9141,
+          "minMs": 31.2792,
+          "maxMs": 48.1596,
+          "samplesMs": [
+            38.028,
+            32.0101,
+            31.2792,
+            32.3831,
+            34.9141,
+            33.7967,
+            41.2325,
+            48.1596,
+            43.0799
+          ]
+        },
+        "comparison": {
+          "medianMs": 26.9523,
+          "minMs": 22.5549,
+          "maxMs": 36.5323,
+          "samplesMs": [
+            27.399,
+            26.9523,
+            22.5549,
+            24.8719,
+            34.3615,
+            24.3468,
+            36.5323,
+            28.2394,
+            26.4088
+          ]
+        },
+        "speedup": 1.2954033607521436,
+        "pairedSpeedupMedian": 1.386802867669553
+      },
+      {
+        "name": "autocomplete/oversized-word",
+        "workload": {
+          "utf16Units": 8000007,
+          "rows": 2,
+          "operations": 1
+        },
+        "baseline": {
+          "medianMs": 73.2339,
+          "minMs": 66.821,
+          "maxMs": 92.7716,
+          "samplesMs": [
+            79.8515,
+            70.3414,
+            71.5696,
+            79.8949,
+            66.821,
+            68.1074,
+            73.2339,
+            92.7716,
+            89.3073
+          ]
+        },
+        "comparison": {
+          "medianMs": 22.3635,
+          "minMs": 20.603,
+          "maxMs": 29.0729,
+          "samplesMs": [
+            20.603,
+            21.6526,
+            20.8857,
+            29.0729,
+            23.5361,
+            21.5489,
+            25.3725,
+            22.3635,
+            27.3736
+          ]
+        },
+        "speedup": 3.274706553088739,
+        "pairedSpeedupMedian": 3.2486352678200308
+      },
+      {
+        "name": "markers/intersecting-all",
+        "workload": {
+          "markers": 10000,
+          "operations": 100
+        },
+        "baseline": {
+          "medianMs": 697.8226,
+          "minMs": 665.6357,
+          "maxMs": 796.071,
+          "samplesMs": [
+            790.4822,
+            665.6357,
+            796.071,
+            741.9644,
+            729.1847,
+            697.8226,
+            677.7181,
+            697.4853,
+            697.5854
+          ]
+        },
+        "comparison": {
+          "medianMs": 709.1263,
+          "minMs": 587.9491,
+          "maxMs": 786.8275,
+          "samplesMs": [
+            709.1263,
+            725.3614,
+            785.9504,
+            786.8275,
+            672.9472,
+            689.259,
+            709.559,
+            687.6681,
+            587.9491
+          ]
+        },
+        "speedup": 0.984059680200833,
+        "pairedSpeedupMedian": 1.0128768940126502
+      },
+      {
+        "name": "markers/getRanges-all",
+        "workload": {
+          "markers": 10000,
+          "operations": 100
+        },
+        "baseline": {
+          "medianMs": 35.9343,
+          "minMs": 31.4978,
+          "maxMs": 50.0864,
+          "samplesMs": [
+            50.0864,
+            35.9343,
+            39.8811,
+            31.4978,
+            32.2082,
+            39.9906,
+            36.8977,
+            31.8992,
+            31.9991
+          ]
+        },
+        "comparison": {
+          "medianMs": 31.8977,
+          "minMs": 28.4232,
+          "maxMs": 61.9194,
+          "samplesMs": [
+            35.4073,
+            61.9194,
+            38.4493,
+            29.1019,
+            29.1679,
+            31.8977,
+            30.8382,
+            28.4232,
+            33.1781
+          ]
+        },
+        "speedup": 1.1265483091257364,
+        "pairedSpeedupMedian": 1.1042344495147063
+      },
+      {
+        "name": "markers/splicePacked-overlapping",
+        "workload": {
+          "markers": 10000,
+          "operations": 100,
+          "touchedPerSplice": 5001
+        },
+        "baseline": {
+          "medianMs": 20.826,
+          "minMs": 18.8505,
+          "maxMs": 27.6845,
+          "samplesMs": [
+            19.7913,
+            22.9751,
+            20.1912,
+            27.6845,
+            27.454,
+            25.4825,
+            20.826,
+            19.9011,
+            18.8505
+          ]
+        },
+        "comparison": {
+          "medianMs": 20.1723,
+          "minMs": 19.5053,
+          "maxMs": 28.4475,
+          "samplesMs": [
+            19.8263,
+            20.1723,
+            19.8629,
+            20.7154,
+            28.4475,
+            21.0115,
+            19.5508,
+            20.2817,
+            19.5053
+          ]
+        },
+        "speedup": 1.0324058238277243,
+        "pairedSpeedupMedian": 1.0165283015068292
+      }
+    ],
+    "checksums": {
+      "baseline": 631835952,
+      "comparison": 631835952
+    },
+    "checksum": 1263671904
+  },
+  "searchControl": {
+    "environment": {
+      "node": "v24.18.0",
+      "v8": "13.6.233.17-node.50",
+      "napi": "10",
+      "platform": "win32",
+      "architecture": "x64",
+      "cpu": "Intel(R) Core(TM) i9-10900K CPU @ 3.70GHz",
+      "logicalCpus": 20,
+      "binding": "before.node",
+      "bindingSha256": "bfc94478fecbde55406ae020f761145741e984baf1242d5cbb85d0bf1711437b",
+      "comparisonBinding": "after.node",
+      "comparisonBindingSha256": "2401825b89961caccdd03907b4e76b915b1ae288a7182a5b58d56f586f46eb38",
+      "gcBetweenSamples": true
+    },
+    "methodology": {
+      "samples": 21,
+      "warmups": 2,
+      "statistic": "median",
+      "unit": "ms per batch",
+      "setupTimed": false,
+      "pairedComparison": true,
+      "order": "Alternate baseline-first and comparison-first within each warmup and sample"
+    },
+    "results": [
+      {
+        "name": "search/frequent/8M UTF-16 units",
+        "workload": {
+          "utf16Units": 8000028,
+          "rows": 131149,
+          "operations": 1
+        },
+        "baseline": {
+          "medianMs": 17.9805,
+          "minMs": 15.4451,
+          "maxMs": 29.85,
+          "samplesMs": [
+            16.9597,
+            17.3847,
+            19.3193,
+            28.7448,
+            17.9805,
+            29.7951,
+            26.779,
+            19.674,
+            26.5519,
+            29.85,
+            24.7803,
+            16.087,
+            17.0501,
+            18.2772,
+            15.6429,
+            15.6779,
+            15.4451,
+            15.9105,
+            15.6267,
+            15.693,
+            18.4192
+          ]
+        },
+        "comparison": {
+          "medianMs": 16.7556,
+          "minMs": 15.6672,
+          "maxMs": 25.8586,
+          "samplesMs": [
+            16.641,
+            17.2884,
+            16.4641,
+            15.8911,
+            22.094,
+            16.0538,
+            18.3705,
+            18.7612,
+            23.4544,
+            19.7582,
+            25.8586,
+            23.388,
+            23.4555,
+            15.6821,
+            16.7556,
+            21.4155,
+            16.425,
+            16.4482,
+            15.7664,
+            16.3691,
+            15.6672
+          ]
+        },
+        "speedup": 1.07310391749624,
+        "pairedSpeedupMedian": 1.0055702089262164
+      }
+    ],
+    "checksums": {
+      "baseline": 3016404,
+      "comparison": 3016404
+    },
+    "checksum": 6032808
+  },
+  "patch": {
+    "methodology": {
+      "node": "v24.18.0",
+      "platform": "win32",
+      "arch": "x64",
+      "module": "before.node",
+      "compareModule": "after.node",
+      "samples": 7,
+      "warmups": 2,
+      "order": "alternating",
+      "gc": true
+    },
+    "results": [
+      {
+        "case": "fresh replacement flat 1 Mi UTF-16 units",
+        "iterations": 24,
+        "operations": 1,
+        "baseline": {
+          "module": "before.node",
+          "medianMs": 4.144162500000003,
+          "minMs": 3.884354166666668,
+          "maxMs": 4.744729166666663,
+          "samplesMs": [
+            3.9956833333333344,
+            4.017079166666666,
+            3.884354166666668,
+            4.744729166666663,
+            4.2835875,
+            4.144162500000003,
+            4.156245833333334
+          ]
+        },
+        "comparison": {
+          "module": "after.node",
+          "medianMs": 3.1255291666666665,
+          "minMs": 2.7365708333333316,
+          "maxMs": 3.4271000000000007,
+          "samplesMs": [
+            2.9385541666666675,
+            2.7365708333333316,
+            3.4271000000000007,
+            3.017345833333337,
+            3.2704208333333327,
+            3.25662916666667,
+            3.1255291666666665
+          ]
+        },
+        "speedup": 1.3259074796667774
+      },
+      {
+        "case": "independent insertion and replacement flat 1 Mi UTF-16 units",
+        "iterations": 24,
+        "operations": 2,
+        "baseline": {
+          "module": "before.node",
+          "medianMs": 3.546175000000005,
+          "minMs": 3.088431250000004,
+          "maxMs": 3.9093354166666643,
+          "samplesMs": [
+            3.396979166666663,
+            3.5846083333333354,
+            3.9093354166666643,
+            3.088431250000004,
+            3.3034458333333325,
+            3.8583333333333294,
+            3.546175000000005
+          ]
+        },
+        "comparison": {
+          "module": "after.node",
+          "medianMs": 2.7387020833333318,
+          "minMs": 2.4568166666666684,
+          "maxMs": 3.0438145833333294,
+          "samplesMs": [
+            2.934310416666667,
+            3.0438145833333294,
+            2.6548250000000073,
+            2.4568166666666684,
+            2.616166666666667,
+            3.0391395833333377,
+            2.7387020833333318
+          ]
+        },
+        "speedup": 1.2948378071425284
+      },
+      {
+        "case": "fresh replacement multiline 1 Mi UTF-16 units",
+        "iterations": 24,
+        "operations": 1,
+        "baseline": {
+          "module": "before.node",
+          "medianMs": 4.2415749999999734,
+          "minMs": 3.964691666666681,
+          "maxMs": 4.732274999999997,
+          "samplesMs": [
+            4.274433333333339,
+            3.964691666666681,
+            3.9674958333333357,
+            4.034325000000005,
+            4.732274999999997,
+            4.412304166666672,
+            4.2415749999999734
+          ]
+        },
+        "comparison": {
+          "module": "after.node",
+          "medianMs": 3.4481166666666545,
+          "minMs": 3.1751208333333047,
+          "maxMs": 3.793941666666683,
+          "samplesMs": [
+            3.213237499999991,
+            3.1751208333333047,
+            3.3188583333333477,
+            3.464370833333343,
+            3.793941666666683,
+            3.4481166666666545,
+            3.45330416666665
+          ]
+        },
+        "speedup": 1.230113540241771
+      },
+      {
+        "case": "independent insertion and replacement multiline 1 Mi UTF-16 units",
+        "iterations": 24,
+        "operations": 2,
+        "baseline": {
+          "module": "before.node",
+          "medianMs": 3.414497916666695,
+          "minMs": 3.187010416666643,
+          "maxMs": 4.494285416666666,
+          "samplesMs": [
+            4.494285416666666,
+            3.689468750000003,
+            3.335031250000005,
+            3.2445749999999784,
+            3.414497916666695,
+            3.6240854166666545,
+            3.187010416666643
+          ]
+        },
+        "comparison": {
+          "module": "after.node",
+          "medianMs": 2.617620833333357,
+          "minMs": 2.445383333333325,
+          "maxMs": 3.080783333333329,
+          "samplesMs": [
+            2.8301250000000095,
+            3.080783333333329,
+            2.617620833333357,
+            2.445383333333325,
+            2.945108333333337,
+            2.4719020833333616,
+            2.458102083333339
+          ]
+        },
+        "speedup": 1.3044280031644502
+      },
+      {
+        "case": "fresh replacement flat 8 Mi UTF-16 units",
+        "iterations": 4,
+        "operations": 1,
+        "baseline": {
+          "module": "before.node",
+          "medianMs": 29.869324999999662,
+          "minMs": 27.31002499999977,
+          "maxMs": 36.240800000000036,
+          "samplesMs": [
+            30.2817,
+            27.31002499999977,
+            27.80134999999973,
+            28.330524999999852,
+            29.869324999999662,
+            36.240800000000036,
+            32.13435000000027
+          ]
+        },
+        "comparison": {
+          "module": "after.node",
+          "medianMs": 23.28924999999981,
+          "minMs": 20.910425000000032,
+          "maxMs": 30.070000000000164,
+          "samplesMs": [
+            21.315875000000233,
+            20.910425000000032,
+            21.572575000000143,
+            23.28924999999981,
+            24.10702500000025,
+            25.972124999999778,
+            30.070000000000164
+          ]
+        },
+        "speedup": 1.2825370074175813
+      },
+      {
+        "case": "independent insertion and replacement flat 8 Mi UTF-16 units",
+        "iterations": 4,
+        "operations": 2,
+        "baseline": {
+          "module": "before.node",
+          "medianMs": 31.603925000000118,
+          "minMs": 30.335149999999885,
+          "maxMs": 33.472125000000005,
+          "samplesMs": [
+            32.003774999999905,
+            33.472125000000005,
+            30.335149999999885,
+            31.603925000000118,
+            30.610562500000015,
+            30.691874999999982,
+            32.49107499999991
+          ]
+        },
+        "comparison": {
+          "module": "after.node",
+          "medianMs": 24.28711250000015,
+          "minMs": 21.82269999999994,
+          "maxMs": 27.486462500000016,
+          "samplesMs": [
+            24.582362500000045,
+            27.486462500000016,
+            21.82269999999994,
+            24.816325000000006,
+            24.28711250000015,
+            22.887312500000007,
+            23.319350000000213
+          ]
+        },
+        "speedup": 1.301263169921905
+      },
+      {
+        "case": "fresh replacement multiline 8 Mi UTF-16 units",
+        "iterations": 4,
+        "operations": 1,
+        "baseline": {
+          "module": "before.node",
+          "medianMs": 35.2531999999992,
+          "minMs": 28.72057500000028,
+          "maxMs": 38.20125000000007,
+          "samplesMs": [
+            28.72057500000028,
+            36.783174999999574,
+            35.2531999999992,
+            35.4717499999997,
+            32.73840000000018,
+            38.20125000000007,
+            31.355774999999994
+          ]
+        },
+        "comparison": {
+          "module": "after.node",
+          "medianMs": 23.88944999999967,
+          "minMs": 21.690224999999373,
+          "maxMs": 35.63837499999954,
+          "samplesMs": [
+            23.04032499999994,
+            21.690224999999373,
+            35.63837499999954,
+            31.1393250000001,
+            26.034700000000157,
+            23.88944999999967,
+            22.15992499999993
+          ]
+        },
+        "speedup": 1.4756806875001176
+      },
+      {
+        "case": "independent insertion and replacement multiline 8 Mi UTF-16 units",
+        "iterations": 4,
+        "operations": 2,
+        "baseline": {
+          "module": "before.node",
+          "medianMs": 30.05663749999985,
+          "minMs": 24.290250000000015,
+          "maxMs": 32.294200000000274,
+          "samplesMs": [
+            28.524662499999977,
+            30.05663749999985,
+            31.592962499999885,
+            27.226062499999898,
+            24.290250000000015,
+            32.294200000000274,
+            31.282987500000218
+          ]
+        },
+        "comparison": {
+          "module": "after.node",
+          "medianMs": 23.30362500000001,
+          "minMs": 19.427637499999946,
+          "maxMs": 25.12441250000029,
+          "samplesMs": [
+            21.40848750000032,
+            23.30362500000001,
+            23.741675000000214,
+            23.63605000000007,
+            19.427637499999946,
+            22.685100000000148,
+            25.12441250000029
+          ]
+        },
+        "speedup": 1.2897837782748323
+      }
+    ]
+  },
+  "allocation": {
+    "scenario": "one returned word, one million positions in a discarded lower-ranked word",
+    "results": [
+      {
+        "bindingPath": "before.node",
+        "positionsByteLength": 8000016
+      },
+      {
+        "bindingPath": "after.node",
+        "positionsByteLength": 12
+      }
+    ]
+  },
+  "differential": {
+    "seed": "0x5e91ab17",
+    "cases": 400,
+    "comparisons": 458,
+    "discrepancies": 0
+  }
+}

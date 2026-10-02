@@ -186,6 +186,10 @@ A boundary is a position in the index where a marker starts or ends. Multiple ma
 }
 ```
 
+## Benchmarks
+
+After building from a source checkout with `npm run build:node`, run `npm run benchmark` for text storage, edits, search, autocomplete, and marker indexing, or `npm run benchmark:patch` for large text-bearing patch splices. The workloads use deterministic local fixtures and verify their results outside the timed region. Both runners support paired comparisons of saved native builds; see [the performance report](docs/performance.md) for commands, methodology, and measured results.
+
 ## Contributing
 
 Got ideas to make this package better, found a bug, or want to help add new features? Just drop your thoughts on GitHub. Any feedback is welcome!
