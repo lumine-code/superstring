@@ -8,6 +8,73 @@ static void require_no_invalidation(const MarkerIndex::SpliceResult &result) {
   REQUIRE(result.surround.size() == 0);
 }
 
+TEST_CASE("MarkerIndex::find_intersecting preserves complete queries after edits and removals") {
+  MarkerIndex index(7);
+  index.insert(UINT32_MAX, Point(2, 0), Point(2, 0));
+  index.insert(31, Point(), Point(10, 3));
+  index.insert(0, Point(1, 2), Point(1, 2));
+  index.insert(8, Point(1, 2), Point(1, 2));
+  index.insert(99, Point(12, 0), Point(12, 0));
+  index.set_exclusive(8, true);
+  auto query = [&](Point start, Point end) {
+    const auto found = index.find_intersecting(start, end);
+    return std::vector<MarkerIndex::MarkerId>(found.begin(), found.end());
+  };
+  const std::vector<MarkerIndex::MarkerId> all{0, 8, 31, 99, UINT32_MAX};
+  REQUIRE(query(Point(), Point(12, 0)) == all);
+  REQUIRE(query(Point(), Point::max()) == all);
+  REQUIRE(query(Point(), Point(10, 3)) == std::vector<MarkerIndex::MarkerId>({0, 8, 31, UINT32_MAX}));
+  REQUIRE(query(Point(2, 0), Point::max()) == std::vector<MarkerIndex::MarkerId>({31, 99, UINT32_MAX}));
+
+  index.splice(Point(1, 2), Point(), Point(0, 3));
+  REQUIRE(index.get_start(0) == Point(1, 2));
+  REQUIRE(index.get_end(0) == Point(1, 5));
+  REQUIRE(index.get_start(8) == Point(1, 5));
+  REQUIRE(index.get_end(8) == Point(1, 5));
+  REQUIRE(query(Point(), Point(12, 0)) == all);
+  index.remove(31);
+  index.splice(Point(1, 0), Point(1, 0), Point());
+  for (unsigned id : {0u, 8u, UINT32_MAX}) {
+    REQUIRE(index.get_start(id) == Point(1, 0));
+    REQUIRE(index.get_end(id) == Point(1, 0));
+  }
+  const std::vector<MarkerIndex::MarkerId> remaining{0, 8, 99, UINT32_MAX};
+  REQUIRE(query(Point(), Point(11, 0)) == remaining);
+  REQUIRE(query(Point(), Point::max()) == remaining);
+  for (unsigned id : remaining) index.remove(id);
+  REQUIRE(query(Point(), Point::max()).empty());
+}
+
+TEST_CASE("MarkerIndex::find_intersecting preserves duplicate-ID endpoint visibility") {
+  for (unsigned scenario = 0; scenario < 3; scenario++) {
+    MarkerIndex index(1);
+    index.insert(7, Point(1, 0), Point(5, 0));
+    index.insert(7, Point(scenario == 0 ? 1 : 3, 0), Point(scenario == 1 ? 5 : 9, 0));
+    index.remove(7);
+    REQUIRE(!index.has(7));
+    const auto ghost = index.find_intersecting(Point(), Point::max());
+    REQUIRE(std::vector<MarkerIndex::MarkerId>(ghost.begin(), ghost.end()) == std::vector<MarkerIndex::MarkerId>({7}));
+    index.insert(7, Point(), Point(2, 0));
+    index.remove(7);
+    index.insert(UINT32_MAX, Point(12, 0), Point(12, 0));
+    const auto found = index.find_intersecting(Point(), Point(12, 0));
+    REQUIRE(std::vector<MarkerIndex::MarkerId>(found.begin(), found.end()) == std::vector<MarkerIndex::MarkerId>({7, UINT32_MAX}));
+  }
+}
+
+TEST_CASE("MarkerIndex::find_intersecting preserves finite bounds after row saturation") {
+  MarkerIndex index(0);
+  index.insert(0, Point(), Point());
+  index.insert(1, Point(UINT32_MAX - 1, 30), Point(UINT32_MAX - 1, 30));
+  index.insert(2, Point(UINT32_MAX, 0), Point(UINT32_MAX, 0));
+  index.splice(Point(), Point(), Point(1, 0));
+  // Tree order can put (MAX,30) before (MAX,0) after saturated arithmetic.
+  const auto finite = index.find_intersecting(Point(), Point(UINT32_MAX, 0));
+  REQUIRE(std::vector<MarkerIndex::MarkerId>(finite.begin(), finite.end()) == std::vector<MarkerIndex::MarkerId>({0}));
+  const auto unbounded = index.find_intersecting(Point(), Point::max());
+  REQUIRE(std::vector<MarkerIndex::MarkerId>(unbounded.begin(), unbounded.end()) == std::vector<MarkerIndex::MarkerId>({0, 1, 2}));
+}
+
 TEST_CASE("MarkerIndex::splice preserves disjoint equal-extent ranges across later edits") {
   MarkerIndex index(7);
   index.insert(1, Point(0, 10), Point(0, 20));

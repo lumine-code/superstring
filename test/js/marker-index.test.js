@@ -5,6 +5,71 @@ const {MarkerIndex} = require('../..')
 const MAX_INT32 = 4294967296
 
 describe('MarkerIndex', () => {
+  describe('queries covering every marker endpoint', () => {
+    const point = (row, column) => ({row, column})
+    const zero = point(0, 0)
+    const infinite = point(Infinity, Infinity)
+    const maximum = 0xffffffff
+
+    it('keeps sorted Set results for finite and Infinity bounds after edits and removals', () => {
+      const index = new MarkerIndex(7)
+      index.insert(maximum, point(2, 0), point(2, 0))
+      index.insert(31, zero, point(10, 3))
+      index.insert(0, point(1, 2), point(1, 2))
+      index.insert(8, point(1, 2), point(1, 2))
+      index.insert(99, point(12, 0), point(12, 0))
+      index.setExclusive(8, true)
+      const all = [0, 8, 31, 99, maximum]
+      for (const end of [point(12, 0), infinite]) {
+        const result = index.findIntersecting(zero, end)
+        assert(result instanceof Set)
+        assert.deepEqual([...result], all)
+      }
+      assert.deepEqual([...index.findIntersecting(zero, point(10, 3))], [0, 8, 31, maximum])
+      assert.deepEqual([...index.findIntersecting(point(2, 0), infinite)], [31, 99, maximum])
+      index.splice(point(1, 2), zero, point(0, 3))
+      assert.deepEqual(index.getRange(0), {start: point(1, 2), end: point(1, 5)})
+      assert.deepEqual(index.getRange(8), {start: point(1, 5), end: point(1, 5)})
+      assert.deepEqual([...index.findIntersecting(zero, point(12, 0))], all)
+      index.remove(31)
+      index.splice(point(1, 0), point(1, 0), zero)
+      for (const id of [0, 8, maximum]) {
+        assert.deepEqual(index.getRange(id), {start: point(1, 0), end: point(1, 0)})
+      }
+      for (const end of [point(11, 0), infinite]) {
+        assert.deepEqual([...index.findIntersecting(zero, end)], [0, 8, 99, maximum])
+      }
+      for (const id of [0, 8, 99, maximum]) index.remove(id)
+      assert.deepEqual([...index.findIntersecting(zero, infinite)], [])
+    })
+
+    it('retains orphaned endpoint visibility after duplicate-ID removal and reinsertion', () => {
+      for (let scenario = 0; scenario < 3; scenario++) {
+        const index = new MarkerIndex(1)
+        index.insert(7, point(1, 0), point(5, 0))
+        index.insert(7, point(scenario === 0 ? 1 : 3, 0), point(scenario === 1 ? 5 : 9, 0))
+        index.remove(7)
+        assert.isFalse(index.has(7))
+        assert.deepEqual([...index.findIntersecting(zero, infinite)], [7])
+        index.insert(7, zero, point(2, 0))
+        index.remove(7)
+        index.insert(maximum, point(12, 0), point(12, 0))
+        assert.deepEqual([...index.findIntersecting(zero, point(12, 0))], [7, maximum])
+      }
+    })
+
+    it('preserves finite column limits when row saturation changes endpoint ordering', () => {
+      const index = new MarkerIndex(0)
+      index.insert(0, zero, zero)
+      index.insert(1, point(maximum - 1, 30), point(maximum - 1, 30))
+      index.insert(2, point(maximum, 0), point(maximum, 0))
+      index.splice(zero, zero, point(1, 0))
+      assert.deepEqual([...index.findIntersecting(zero, point(maximum, 0))], [0])
+      assert.deepEqual([...index.findIntersecting(zero, point(Infinity, 0))], [0])
+      assert.deepEqual([...index.findIntersecting(zero, infinite)], [0, 1, 2])
+    })
+  })
+
   describe('remove with an unknown id', () => {
     it('ignores a removal from an empty index', () => {
       const index = new MarkerIndex(1)

@@ -12,7 +12,8 @@
     "test:threads": "node ./test/js/threads-outer.js",
     "test": "npm run test:node",
     "benchmark": "node --expose-gc benchmark/performance.benchmark.js",
-    "benchmark:patch": "node --expose-gc benchmark/patch-splice.benchmark.js"
+    "benchmark:patch": "node --expose-gc benchmark/patch-splice.benchmark.js",
+    "benchmark:marker-query": "node --expose-gc benchmark/marker-query.benchmark.js"
   },
   "repository": "https://github.com/lumine-code/superstring",
   "keywords": [

@@ -694,7 +694,33 @@ int MarkerIndex::compare(MarkerId id1, MarkerId id2) const {
 
 flat_set<MarkerIndex::MarkerId> MarkerIndex::find_intersecting(Point start, Point end) {
   std::vector<MarkerId> result;
-  iterator.find_intersecting(start, end, &result);
+  bool covers_tree = false;
+  // Row saturation can reset a later endpoint's column below an ancestor's.
+  // A finite column bound on that row cannot use the rightmost node to prove
+  // full coverage, while Point::max() covers every possible coordinate.
+  const bool ambiguous_saturated_end = end.row == UINT32_MAX && end.column < UINT32_MAX;
+  if (root && start.is_zero() && !ambiguous_saturated_end && get_node_position(root) <= end) {
+    const Node *rightmost = root;
+    while (rightmost->right) rightmost = rightmost->right;
+    covers_tree = get_node_position(rightmost) <= end;
+  }
+  if (covers_tree) {
+    // An all-covering query needs endpoints only. Appending subtree crossing
+    // sets repeats the same IDs at many nodes before sorting and deduplicating.
+    // Include both endpoint sets to preserve duplicate-ID ghosts after removal.
+    result.reserve(start_nodes_by_id.size());
+    std::vector<const Node *> stack{root};
+    while (!stack.empty()) {
+      const Node *node = stack.back();
+      stack.pop_back();
+      result.insert(result.end(), node->start_marker_ids.begin(), node->start_marker_ids.end());
+      result.insert(result.end(), node->end_marker_ids.begin(), node->end_marker_ids.end());
+      if (node->right) stack.push_back(node->right);
+      if (node->left) stack.push_back(node->left);
+    }
+  } else {
+    iterator.find_intersecting(start, end, &result);
+  }
   return MarkerIdSet{std::move(result)};
 }
 
