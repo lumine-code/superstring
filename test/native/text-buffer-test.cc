@@ -528,6 +528,34 @@ TEST_CASE("TextBuffer::find_words_with_subsequence_in_range") {
   }
 }
 
+TEST_CASE("TextBuffer::find_words_with_subsequence_in_range - scoring variants and result ownership") {
+  TextBuffer buffer{u"ababa a_b_a AbAbA ababa\nban_ana banana bandana"};
+  const Range range = Range::all_inclusive();
+  const vector<SubsequenceMatch> expected{
+    {u"AbAbA", {Point{0, 12}}, {0, 2}, 15},
+    {u"a_b_a", {Point{0, 6}}, {0, 4}, 13},
+    {u"ababa", {Point{0, 0}, Point{0, 18}}, {0, 2}, 7},
+    {u"ban_ana", {Point{1, 0}}, {1, 4}, 3},
+    {u"banana", {Point{1, 8}}, {1, 3}, -6},
+    {u"bandana", {Point{1, 15}}, {1, 4}, -7}
+  };
+
+  // Repeated query characters explore competing consecutive and subword paths.
+  const auto first_matches = buffer.find_words_with_subsequence_in_range(u"aa", u"_", range);
+  REQUIRE(first_matches == expected);
+  REQUIRE(buffer.find_words_with_subsequence_in_range(u"aa", u"_", range) == expected);
+  REQUIRE(buffer.find_words_with_subsequence_in_range(u"AbA", u"_", range) == vector<SubsequenceMatch>({
+    {u"AbAbA", {Point{0, 12}}, {0, 1, 2}, 30},
+    {u"a_b_a", {Point{0, 6}}, {0, 2, 4}, 24},
+    {u"ababa", {Point{0, 0}, Point{0, 18}}, {0, 1, 2}, 19}
+  }));
+
+  auto snapshot = std::unique_ptr<TextBuffer::Snapshot>(buffer.create_snapshot());
+  buffer.set_text_in_range({{0, 0}, {0, 5}}, u"other");
+  REQUIRE(snapshot->find_words_with_subsequence_in_range(u"aa", u"_", range) == expected);
+  REQUIRE(first_matches == expected);
+}
+
 TEST_CASE("TextBuffer::has_astral") {
   REQUIRE(TextBuffer{u"ab\xd83d\xde01" u"cd"}.has_astral());
   REQUIRE(!TextBuffer{u"abcd"}.has_astral());

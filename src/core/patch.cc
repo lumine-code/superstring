@@ -1314,8 +1314,8 @@ Patch::Node *Patch::build_node(Node *left, Node *right,
     new_extent,
     old_distance_from_left_ancestor,
     new_distance_from_left_ancestor,
-    old_text ? unique_ptr<Text>{new Text(*old_text)} : nullptr,
-    new_text ? unique_ptr<Text>{new Text(*new_text)} : nullptr,
+    old_text ? unique_ptr<Text>{new Text(move(*old_text))} : nullptr,
+    new_text ? unique_ptr<Text>{new Text(move(*new_text))} : nullptr,
     old_text_size
   };
 }

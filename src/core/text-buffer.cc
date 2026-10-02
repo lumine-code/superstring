@@ -527,9 +527,13 @@ struct TextBuffer::Layer {
 
           if (is_word_character) {
             if (current_word.empty()) current_word_start = position;
-            current_word += c;
-            if (query_index < query.size() && towlower(c) == query[query_index]) {
-              query_index++;
+            // Keep one extra character to mark an oversized word. It must
+            // remain rejected until the next word boundary, across chunks.
+            if (current_word.size() <= MAX_WORD_LENGTH) {
+              current_word += c;
+              if (query_index < query.size() && towlower(c) == query[query_index]) {
+                query_index++;
+              }
             }
           } else {
             if (!current_word.empty()) {
@@ -566,10 +570,10 @@ struct TextBuffer::Layer {
     static const unsigned leading_mismatch_penalty = 3;
 
     vector<SubsequenceMatch> matches;
+    matches.reserve(substring_matches.size());
 
-    for (auto entry : substring_matches) {
+    for (auto &entry : substring_matches) {
       const u16string &word = entry.first;
-      const vector<Point> &start_positions = entry.second;
 
       vector<SubsequenceMatchVariant> match_variants {{}};
       vector<SubsequenceMatchVariant> new_match_variants;
@@ -599,7 +603,7 @@ struct TextBuffer::Layer {
               }
 
               new_match.match_indices.push_back(i);
-              new_match_variants.push_back(new_match);
+              new_match_variants.push_back(move(new_match));
             }
 
             // For the current match variant, treat the current character as
@@ -638,15 +642,15 @@ struct TextBuffer::Layer {
         // by definition eligible for the consecutive match bonus on the next character) has
         // a lower score than an existing variant. Maintain the invariant that match variants
         // are ordered by ascending `query_index` and ascending `score`.
-        for (const SubsequenceMatchVariant &new_variant : new_match_variants) {
+        for (SubsequenceMatchVariant &new_variant : new_match_variants) {
           auto existing_match_iter = std::lower_bound(match_variants.begin(), match_variants.end(), new_variant);
           if (existing_match_iter != match_variants.end() && new_variant.query_index == existing_match_iter->query_index) {
             if (new_variant.score >= existing_match_iter->score) {
-              *existing_match_iter = new_variant;
+              *existing_match_iter = move(new_variant);
               continue;
             }
           }
-          match_variants.insert(existing_match_iter, new_variant);
+          match_variants.insert(existing_match_iter, move(new_variant));
         }
         new_match_variants.clear();
       }
@@ -660,7 +664,7 @@ struct TextBuffer::Layer {
         }
       }
 
-      matches.push_back(SubsequenceMatch{word, start_positions, best_match->match_indices, best_match->score});
+      matches.push_back(SubsequenceMatch{word, move(entry.second), move(best_match->match_indices), best_match->score});
     }
 
     std::sort(matches.begin(), matches.end(), [] (const SubsequenceMatch &a, const SubsequenceMatch &b) {

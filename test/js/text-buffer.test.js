@@ -1497,6 +1497,41 @@ describe('TextBuffer', () => {
       })
     })
 
+    it('preserves positions and scores when limiting or repeating results', async () => {
+      const buffer = new TextBuffer('cat zzcat\nzzcat cat catapult\nzzcat')
+      const all = await buffer.findWordsWithSubsequence('cat', '', 100)
+      assert.deepEqual(all.map(({word}) => word), ['cat', 'catapult', 'zzcat'])
+      assert.deepEqual(all[2].positions, [
+        {row: 0, column: 4}, {row: 1, column: 0}, {row: 2, column: 0}
+      ])
+      for (const maxCount of [0, 1, 2, 3, 100]) {
+        assert.deepEqual(await buffer.findWordsWithSubsequence('cat', '', maxCount), all.slice(0, maxCount))
+      }
+      const first = await buffer.findWordsWithSubsequence('cat', '', 1)
+      first[0].positions[0].column = 999
+      first[0].matchIndices[0] = 999
+      assert.deepEqual(await buffer.findWordsWithSubsequence('cat', '', 1), all.slice(0, 1))
+    })
+
+    it('rejects oversized words through the next boundary and across edit chunks', async () => {
+      const accepted = 'cat' + 'x'.repeat(77)
+      const rejected = 'cat' + 'x'.repeat(78)
+      const text = `${accepted} ${rejected} ${'x'.repeat(8192)}cat\ncat`
+      const buffer = new TextBuffer(text)
+      const matches = await buffer.findWordsWithSubsequence('cat', '', 10)
+      assert.deepEqual(matches.map(({word}) => word), ['cat', accepted])
+      assert.deepEqual(matches[0].positions, [{row: 1, column: 0}])
+      assert.deepEqual(matches[1].positions, [{row: 0, column: 0}])
+      assert.equal((await new TextBuffer(rejected).findWordsWithSubsequence('cat', '', 10)).length, 0)
+      assert.equal((await new TextBuffer(rejected).findWordsWithSubsequence('', '', 10)).length, 0)
+
+      const edited = new TextBuffer(`${accepted} cat`)
+      edited.setTextInRange({start: {row: 0, column: 20}, end: {row: 0, column: 20}}, 'x'.repeat(4096))
+      const editedMatches = await edited.findWordsWithSubsequence('cat', '', 10)
+      assert.deepEqual(editedMatches.map(({word}) => word), ['cat'])
+      assert.deepEqual(editedMatches[0].positions, [{row: 0, column: 4177}])
+    })
+
     it('can be called repeatedly between buffer mutations without harming performance', () => {
       let seed = Date.now()
       const random = new Random(seed)

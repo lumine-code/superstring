@@ -1,3 +1,4 @@
+#include <algorithm>
 #include <sstream>
 #include <iomanip>
 #include <stdio.h>
@@ -696,19 +697,20 @@ void TextBufferWrapper::find_words_with_subsequence_in_range(const CallbackInfo 
 
       Array js_matches_array = Array::New(env);
 
-      uint32_t positions_buffer_size = 0;
-      for (const auto &subsequence_match : result) {
-        positions_buffer_size += sizeof(uint32_t) + subsequence_match.positions.size() * sizeof(Point);
+      const size_t match_count = std::min(result.size(), max_count);
+      size_t positions_buffer_size = 0;
+      for (size_t i = 0; i < match_count; i++) {
+        positions_buffer_size += sizeof(uint32_t) + result[i].positions.size() * sizeof(Point);
       }
 
       auto positions_buffer = ArrayBuffer::New(env, positions_buffer_size);
       uint32_t *positions_data = reinterpret_cast<uint32_t *>(positions_buffer.Data());
 
-      uint32_t positions_array_index = 0;
-      for (size_t i = 0; i < result.size() && i < max_count; i++) {
+      size_t positions_array_index = 0;
+      for (size_t i = 0; i < match_count; i++) {
         const SubsequenceMatch &match = result[i];
         positions_data[positions_array_index++] = match.positions.size();
-        uint32_t bytes_to_copy = match.positions.size() * sizeof(Point);
+        size_t bytes_to_copy = match.positions.size() * sizeof(Point);
         memcpy(
           positions_data + positions_array_index,
           match.positions.data(),

@@ -5,6 +5,79 @@ using std::vector;
 
 static optional<Text> null_text;
 
+TEST_CASE("Patch::splice - owns large multiline text after input lifetimes end") {
+  std::u16string old_content, new_content;
+  for (size_t i = 0; i < 16384; i++) {
+    old_content += u"old \u03a9 \U0001f680\r\n";
+    new_content += u"new \u03bb \U0001f30d\r\n";
+  }
+  old_content += u"end";
+  new_content += u"end";
+  const Text expected_old{old_content};
+  const Text expected_new{new_content};
+  const Point extent = expected_new.extent();
+  REQUIRE(expected_old.extent() == extent);
+  const uint32_t row_step = extent.row + 3;
+  Patch patch;
+
+  auto splice_with_local_inputs = [&](Point start, bool insertion) {
+    optional<Text> deleted{insertion ? Text{u""} : Text{old_content}};
+    optional<Text> inserted{Text{new_content}};
+    REQUIRE(patch.splice(start, insertion ? Point() : extent, extent,
+                         std::move(deleted), std::move(inserted)));
+    // Reusing and destroying the caller's inputs must leave the patch intact.
+    *deleted = Text{u"reused old input"};
+    *inserted = Text{u"reused new input"};
+  };
+
+  // New nodes are added after, before and between existing changes.
+  for (uint32_t row : {2 * row_step, 4 * row_step, 0u, row_step}) {
+    splice_with_local_inputs(Point(row, 0), false);
+  }
+  splice_with_local_inputs(Point(5 * row_step, 0), true);
+
+  const auto expected_changes = patch.get_changes();
+  REQUIRE(expected_changes.size() == 5);
+  const vector<uint32_t> rows{0, row_step, 2 * row_step, 4 * row_step, 5 * row_step};
+  for (size_t i = 0; i < expected_changes.size(); i++) {
+    const auto &change = expected_changes[i];
+    REQUIRE(change.old_start == Point(rows[i], 0));
+    REQUIRE(change.new_start == Point(rows[i], 0));
+    REQUIRE(change.old_end == Point(rows[i], 0).traverse(i == 4 ? Point() : extent));
+    REQUIRE(change.new_end == Point(rows[i], 0).traverse(extent));
+    REQUIRE(*change.old_text == (i == 4 ? Text{u""} : expected_old));
+    REQUIRE(*change.new_text == expected_new);
+    REQUIRE(change.new_text->line_offsets == expected_new.line_offsets);
+  }
+
+  Patch copied = patch.copy();
+  Patch inverted = patch.invert();
+  vector<uint8_t> bytes;
+  Serializer serializer{bytes};
+  patch.serialize(serializer);
+  Deserializer deserializer{bytes};
+  Patch restored{deserializer};
+  REQUIRE(copied.get_changes() == expected_changes);
+  REQUIRE(restored.get_changes() == expected_changes);
+
+  patch.clear();
+  REQUIRE(patch.get_change_count() == 0);
+  REQUIRE(copied.get_changes() == restored.get_changes());
+  const auto copied_changes = copied.get_changes();
+  const auto inverted_changes = inverted.get_changes();
+  REQUIRE(inverted_changes.size() == copied_changes.size());
+  for (size_t i = 0; i < copied_changes.size(); i++) {
+    REQUIRE(*copied_changes[i].new_text == expected_new);
+    REQUIRE(inverted_changes[i].old_start == copied_changes[i].new_start);
+    REQUIRE(inverted_changes[i].old_end == copied_changes[i].new_end);
+    REQUIRE(inverted_changes[i].new_start == copied_changes[i].old_start);
+    REQUIRE(inverted_changes[i].new_end == copied_changes[i].old_end);
+    REQUIRE(*inverted_changes[i].old_text == *copied_changes[i].new_text);
+    REQUIRE(*inverted_changes[i].new_text == *copied_changes[i].old_text);
+    REQUIRE(inverted_changes[i].old_text->line_offsets == expected_new.line_offsets);
+  }
+}
+
 TEST_CASE("Patch::splice - rejects inconsistent prefixes without changing the patch") {
   for (bool has_later_change : {false, true}) {
     for (uint32_t column : {2u, 4u}) {
