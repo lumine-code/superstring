@@ -2,6 +2,8 @@
 
 Provides native text patches, marker indexing, and text storage.
 
+Fork of [pulsar-edit/superstring](https://github.com/pulsar-edit/superstring).
+
 ## Features
 
 - **Patch composition**: records, combines, inverts, serializes, and deserializes text changes.
@@ -23,26 +25,39 @@ On macOS 13 and greater, the OS no longer offers GNU `libiconv`. We handle this 
 This data structure represents a transformation from input to output text, and it's useful for combining changes that occur at different points in time and space.
 
 Example:
+
 ```js
-const patch = new Patch
+const patch = new Patch();
 
 // At column 5, replace the string 'abc' with '1234':
-patch.splice({row: 0, column: 5}, {row: 0, column: 3}, {row: 0, column: 4}, 'abc', '1234')
+patch.splice(
+  { row: 0, column: 5 },
+  { row: 0, column: 3 },
+  { row: 0, column: 4 },
+  "abc",
+  "1234",
+);
 
 // Then at column 7, replace 3 characters with 4 characters:
-patch.splice({row: 0, column: 7}, {row: 0, column: 3}, {row: 0, column: 4}, '34d', '5678')
+patch.splice(
+  { row: 0, column: 7 },
+  { row: 0, column: 3 },
+  { row: 0, column: 4 },
+  "34d",
+  "5678",
+);
 
 // Retrieve the consolidated changes:
 assert.deepEqual(patch.getChanges(), [
   {
-    oldStart: {row: 0, column: 5},
-    oldEnd: {row: 0, column: 9},
-    oldText: 'abcd',
-    newStart: {row: 0, column: 5},
-    newEnd: {row: 0, column: 11},
-    newText: '125678'
-  }
-])
+    oldStart: { row: 0, column: 5 },
+    oldEnd: { row: 0, column: 9 },
+    oldText: "abcd",
+    newStart: { row: 0, column: 5 },
+    newEnd: { row: 0, column: 11 },
+    newText: "125678",
+  },
+]);
 ```
 
 #### `spliceMany(splices)`
@@ -62,17 +77,21 @@ This data structure is used to track logical locations in a text buffer as the c
 Example:
 
 ```js
-const index = new MarkerIndex
+const index = new MarkerIndex();
 
 // Associate a marker id with two ordered start and end points
-index.insert(1, {row: 2, column: 5}, {row: 4, column: 10})
+index.insert(1, { row: 2, column: 5 }, { row: 4, column: 10 });
 
 // Splice represents a change to the text file
 // you pass it a starting point, then points representing the old and new extent
-index.splice({row: 3, column: 5}, {row: 0, column: 0}, {row: 1, column: 0})
+index.splice(
+  { row: 3, column: 5 },
+  { row: 0, column: 0 },
+  { row: 1, column: 0 },
+);
 
 // The marker's end point was updated by the splice
-assert.deepEqual(index.getEnd(1), {row: 5, column: 10})
+assert.deepEqual(index.getEnd(1), { row: 5, column: 10 });
 ```
 
 #### API
@@ -83,16 +102,16 @@ Associates the given non-negative integer with a range represented by two `{row:
 
 ##### `splice (start, oldExtent, newExtent)`
 
-Update the locations of all markers based on the description of a change to the text. The range of the replaced text is described by *traversing* from `start` by `oldExtent`. The range of the new text is described by *traversing* from `start` to `newExtent`.
+Update the locations of all markers based on the description of a change to the text. The range of the replaced text is described by _traversing_ from `start` by `oldExtent`. The range of the new text is described by _traversing_ from `start` to `newExtent`.
 
-*Traversal* means that beginning with the `start` location, we arrive at a new location by performing X line feeds and carriage returns and then walk forward Y columns, where X is the `row` of the given traversal extent and Y is its `column`. So basically `start`, `oldExtent`, and `newExtent` describe two ranges in the file, basically the spatial before and after effects of a change.
+_Traversal_ means that beginning with the `start` location, we arrive at a new location by performing X line feeds and carriage returns and then walk forward Y columns, where X is the `row` of the given traversal extent and Y is its `column`. So basically `start`, `oldExtent`, and `newExtent` describe two ranges in the file, basically the spatial before and after effects of a change.
 
-This method returns an object that describes what markers were *invalidated* by the change based on various invalidation strategies. If a marker is in a set for a given strategy, it was invalidated according to that strategy. The strategies are as follows:
+This method returns an object that describes what markers were _invalidated_ by the change based on various invalidation strategies. If a marker is in a set for a given strategy, it was invalidated according to that strategy. The strategies are as follows:
 
-* `touch` Contains markers that the change touched in any way.
-* `inside` Contains markers that the change touched, but not markers with endpoints immediately adjacent to the change.
-* `overlap` Contains markers that had one or both of their endpoints surrounded by the change.
-* `surround` Contains markers that had both endpoints surrounded by the change.
+- `touch` Contains markers that the change touched in any way.
+- `inside` Contains markers that the change touched, but not markers with endpoints immediately adjacent to the change.
+- `overlap` Contains markers that had one or both of their endpoints surrounded by the change.
+- `surround` Contains markers that had both endpoints surrounded by the change.
 
 ##### `splicePacked (start, oldExtent, newExtent)`
 
@@ -102,9 +121,9 @@ Updates marker locations with the same arguments and behavior as `splice`, retur
 
 This method allows to control the behavior of a marker when splices start and/or end at the marker's endpoints.
 
-By default, we consider markers to be *inclusive*: that is, splices exactly at the beginning of the marked range will be considered to begin inside the marker (meaning that the marker's start position **will not** move), and splices exactly at the end of the marked range will be considered to end inside the marker (meaning that the marker's end position **will** move).
+By default, we consider markers to be _inclusive_: that is, splices exactly at the beginning of the marked range will be considered to begin inside the marker (meaning that the marker's start position **will not** move), and splices exactly at the end of the marked range will be considered to end inside the marker (meaning that the marker's end position **will** move).
 
-*Exclusive* markers, on the other hand, exhibit a slightly different behavior: in fact, splices exactly at the beginning of the marked range will be considered to begin outside the marker (meaning that the marker's start position **will** move), and splices exactly at the end of the marked range will be considered to end outside the marker (meaning that the marker's end position **will not** move).
+_Exclusive_ markers, on the other hand, exhibit a slightly different behavior: in fact, splices exactly at the beginning of the marked range will be considered to begin outside the marker (meaning that the marker's start position **will** move), and splices exactly at the end of the marked range will be considered to end outside the marker (meaning that the marker's end position **will not** move).
 
 Please note that, independently of whether a marker is inclusive or exclusive, its end **will always** be moved when its start gets moved as a result of a splice.
 
