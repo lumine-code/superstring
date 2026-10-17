@@ -2,6 +2,7 @@
 
 !README.md
 !LICENSE
+!THIRD_PARTY_NOTICES
 !index.js
 !src/core/*
 !src/bindings/*.h
