@@ -4,6 +4,7 @@
 #include <vector>
 
 #include "addon-data.h"
+#include "change-wrapper.h"
 #include "patch-wrapper.h"
 #include "point-wrapper.h"
 #include "string-conversion.h"
@@ -21,52 +22,6 @@ static const char *InvalidOldPositionsTypeMessage =
   "Patch.changesForOldPositions expects a Uint32Array";
 static const char *InvalidOldPositionsLengthMessage =
   "Patch.changesForOldPositions expects a Uint32Array whose length is a multiple of 2";
-
-class ChangeWrapper : public ObjectWrap<ChangeWrapper> {
- public:
-  static void init(Napi::Env env) {
-    auto *data = env.GetInstanceData<AddonData>();
-    Function func = DefineClass(env, "Change", {
-      InstanceMethod<&ChangeWrapper::to_string>("toString"),
-    });
-
-    data->change_wrapper_constructor = Napi::Persistent(func);
-  }
-
-  static Napi::Value FromChange(Napi::Env env, Patch::Change change) {
-    auto *data = env.GetInstanceData<AddonData>();
-    auto wrapper = External<Patch::Change>::New(env, &change);
-    Napi::Object js_change_wrapper = data->change_wrapper_constructor.New({wrapper});
-    return js_change_wrapper;
-  }
-
-  ChangeWrapper(const CallbackInfo &info): ObjectWrap<ChangeWrapper>(info) {
-    auto env = info.Env();
-    if (info[0].IsExternal()) {
-      auto js_wrapper = info[0].As<External<Patch::Change>>();
-      change = *js_wrapper.Data();
-      Object js_change = info.This().As<Object>();
-      js_change.Set("oldStart", PointWrapper::from_point(env, change.old_start));
-      js_change.Set("newStart", PointWrapper::from_point(env, change.new_start));
-      js_change.Set("oldEnd", PointWrapper::from_point(env, change.old_end));
-      js_change.Set("newEnd", PointWrapper::from_point(env, change.new_end));
-
-      if (change.new_text) {
-        js_change.Set("newText", string_conversion::string_to_js(env, change.new_text->content));
-        js_change.Set("oldText", string_conversion::string_to_js(env, change.old_text->content));
-      }
-    }
-  }
-
- private:
-  Napi::Value to_string(const CallbackInfo &info) {
-    std::stringstream result;
-    result << this->change;
-    return String::New(Env(), result.str());
-  }
-
-  Patch::Change change;
-};
 
 void PatchWrapper::init(Napi::Env env, Object exports) {
   auto *data = env.GetInstanceData<AddonData>();
@@ -226,8 +181,8 @@ Napi::Value PatchWrapper::get_changes(const CallbackInfo &info) {
   Array js_result = Array::New(env);
 
   size_t i = 0;
-  for (auto change : patch.get_changes()) {
-    js_result[i++] = ChangeWrapper::FromChange(env, change);
+  for (auto change : patch.get_owned_changes()) {
+    js_result[i++] = ChangeWrapper::from_owned_change(env, std::move(change));
   }
 
   return js_result;
@@ -245,7 +200,7 @@ Napi::Value PatchWrapper::get_changes_in_old_range(const CallbackInfo &info) {
 
     size_t i = 0;
     for (auto change : patch.grab_changes_in_old_range(*start, *end)) {
-      js_result[i++] = ChangeWrapper::FromChange(env, change);
+      js_result[i++] = ChangeWrapper::from_change(env, change);
     }
 
     return js_result;
@@ -266,7 +221,7 @@ Napi::Value PatchWrapper::get_changes_in_new_range(const CallbackInfo &info) {
 
     size_t i = 0;
     for (auto change : patch.grab_changes_in_new_range(*start, *end)) {
-      js_result[i++] = ChangeWrapper::FromChange(env, change);
+      js_result[i++] = ChangeWrapper::from_change(env, change);
     }
 
     return js_result;
@@ -282,7 +237,7 @@ Napi::Value PatchWrapper::change_for_old_position(const CallbackInfo &info) {
   if (start) {
     auto change = patch.grab_change_starting_before_old_position(*start);
     if (change) {
-      return ChangeWrapper::FromChange(env, *change);
+      return ChangeWrapper::from_change(env, *change);
     }
   }
 
@@ -337,7 +292,7 @@ Napi::Value PatchWrapper::change_for_new_position(const CallbackInfo &info) {
   if (start) {
     auto change = patch.grab_change_starting_before_new_position(*start);
     if (change) {
-      return ChangeWrapper::FromChange(env, *change);
+      return ChangeWrapper::from_change(env, *change);
     }
   }
   return env.Undefined();
@@ -426,7 +381,7 @@ Napi::Value PatchWrapper::get_bounds(const CallbackInfo &info) {
   Patch &patch = this->patch;
   auto bounds = patch.get_bounds();
   if (bounds) {
-    return ChangeWrapper::FromChange(env, *bounds);
+    return ChangeWrapper::from_change(env, *bounds);
   }
   return env.Undefined();
 }

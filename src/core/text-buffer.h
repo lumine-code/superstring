@@ -12,6 +12,7 @@
 
 class TextBuffer {
   struct Layer;
+  uint64_t revision_ = 0;
   Layer *base_layer;
   Layer *top_layer;
   void squash_layers(const std::vector<Layer *> &);
@@ -41,6 +42,11 @@ public:
   void set_text(const std::u16string &);
   void set_text_in_range(Range old_range, std::u16string &&);
   void set_text_in_range(Range old_range, const std::u16string &);
+  uint64_t revision() const { return revision_; }
+  void set_shared_text_in_range(Range, Patch::SharedText);
+  void set_shared_text(Patch::SharedText);
+  optional<bool> canonicalize_edit(Range &, Patch::SharedText &, Patch::SharedText &);
+  bool text_matches_range(Range, const Text &) const;
   bool is_modified() const;
   bool has_astral();
   std::vector<TextSlice> chunks() const;

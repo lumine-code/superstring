@@ -7,6 +7,8 @@
             ],
             "sources": [
                 "src/bindings/bindings.cc",
+                "src/bindings/change-wrapper.cc",
+                "src/bindings/prepared-edit-wrapper.cc",
                 "src/bindings/marker-index-wrapper.cc",
                 "src/bindings/patch-wrapper.cc",
                 "src/bindings/point-wrapper.cc",
@@ -161,6 +163,7 @@
                     "test/native/encoding-conversion-test.cc",
                     "test/native/marker-index-test.cc",
                     "test/native/patch-test.cc",
+                    "test/native/shared-edit-test.cc",
                     "test/native/text-buffer-test.cc",
                     "test/native/text-test.cc",
                     "test/native/text-diff-test.cc",

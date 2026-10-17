@@ -731,6 +731,7 @@ TextBuffer::TextBuffer(const std::u16string &text) :
   TextBuffer{u16string{text.begin(), text.end()}} {}
 
 void TextBuffer::reset(Text &&new_base_text) {
+  revision_++;
   bool has_snapshot = false;
   auto layer = top_layer;
   while (layer) {
@@ -823,6 +824,7 @@ void TextBuffer::serialize_changes(Serializer &serializer) {
 }
 
 bool TextBuffer::deserialize_changes(Deserializer &deserializer) {
+  revision_++;
   if (top_layer != base_layer || base_layer->previous_layer) return false;
   top_layer = new Layer(base_layer);
   top_layer->size_ = deserializer.read<uint32_t>();
@@ -917,12 +919,77 @@ u16string TextBuffer::text_in_range(Range range) {
   return top_layer->text_in_range(range, true);
 }
 
+// Canonical edits never need a clipped point between CR and LF. Patch geometry
+// can address that boundary, so replay expands both payloads over its neighbors.
+optional<bool> TextBuffer::canonicalize_edit(Range &range,
+                              Patch::SharedText &old_text, Patch::SharedText &new_text) {
+  auto &buffer = *this;
+  bool expanded = false;
+  auto prepend_cr = [&] {
+    old_text = std::make_shared<const Text>(u"\r" + old_text->content);
+    new_text = std::make_shared<const Text>(u"\r" + new_text->content);
+    expanded = true;
+  };
+  auto append_lf = [&] {
+    old_text = std::make_shared<const Text>(old_text->content + u"\n");
+    new_text = std::make_shared<const Text>(new_text->content + u"\n");
+    expanded = true;
+  };
+  auto between_crlf = [&](Point position, Point clipped) {
+    return position.row == clipped.row && position.column == clipped.column + 1 &&
+      clipped < buffer.extent() && buffer.character_at(clipped) == '\r';
+  };
+  Point start = buffer.clip_position(range.start).position;
+  Point end = buffer.clip_position(range.end).position;
+  if ((start != range.start && !between_crlf(range.start, start)) ||
+      (end != range.end && !between_crlf(range.end, end))) return {};
+  if (between_crlf(range.start, start)) {
+    range.start = start;
+    prepend_cr();
+  }
+  if (between_crlf(range.end, end)) {
+    range.end = Point(end.row + 1, 0);
+    append_lf();
+  }
+  const bool suffix_lf = range.end < buffer.extent() && buffer.character_at(range.end) == '\n';
+  if (range.start.column > 0 &&
+      buffer.character_at(Point(range.start.row, range.start.column - 1)) == '\r' &&
+      ((!new_text->empty() && new_text->content.front() == '\n') || (new_text->empty() && suffix_lf))) {
+    range.start.column--;
+    prepend_cr();
+  }
+  if (suffix_lf && !new_text->empty() && new_text->content.back() == '\r') {
+    range.end = Point(range.end.row + 1, 0);
+    append_lf();
+  }
+  return expanded;
+}
+
+bool TextBuffer::text_matches_range(Range range, const Text &expected) const {
+  uint32_t offset = 0;
+  bool matches = true;
+  top_layer->for_each_chunk_in_range(range.start, range.end, [&](TextSlice chunk) {
+    if (chunk.size() > expected.size() - offset ||
+        !std::equal(chunk.begin(), chunk.end(), expected.begin() + offset)) {
+      matches = false;
+      return true;
+    }
+    offset += chunk.size();
+    return false;
+  });
+  return matches && offset == expected.size();
+}
+
 vector<TextSlice> TextBuffer::chunks() const {
   return top_layer->chunks_in_range({{0, 0}, extent()});
 }
 
 void TextBuffer::set_text(u16string &&new_text) {
-  set_text_in_range(Range{Point(0, 0), extent()}, move(new_text));
+  set_shared_text(std::make_shared<const Text>(move(new_text)));
+}
+
+void TextBuffer::set_shared_text(Patch::SharedText new_text) {
+  set_shared_text_in_range(Range{Point(0, 0), extent()}, move(new_text));
 
   // Replacing the whole buffer leaves the entire new text inside a single
   // change in `top_layer`'s patch. If it stayed there, every subsequent edit
@@ -945,6 +1012,11 @@ void TextBuffer::set_text(const u16string &new_text) {
 }
 
 void TextBuffer::set_text_in_range(Range old_range, u16string &&string) {
+  set_shared_text_in_range(old_range, std::make_shared<const Text>(move(string)));
+}
+
+void TextBuffer::set_shared_text_in_range(Range old_range, Patch::SharedText new_text) {
+  revision_++;
   // A flat layer (`!uses_patch`) serves reads from its materialized `text` and
   // ignores its patch, so we can't splice edits into it directly. This covers
   // both the base layer and a layer materialized by `set_text`; in either case
@@ -956,17 +1028,16 @@ void TextBuffer::set_text_in_range(Range old_range, u16string &&string) {
   auto start = clip_position(old_range.start);
   auto end = old_range.end == old_range.start ? start : clip_position(old_range.end);
   Point deleted_extent = end.position.traversal(start.position);
-  Text new_text{move(string)};
-  Point inserted_extent = new_text.extent();
-  Point new_range_end = start.position.traverse(new_text.extent());
+  Point inserted_extent = new_text->extent();
+  Point new_range_end = start.position.traverse(new_text->extent());
   uint32_t deleted_text_size = end.offset - start.offset;
   top_layer->extent_ = new_range_end.traverse(top_layer->extent_.traversal(end.position));
-  top_layer->size_ += new_text.size() - deleted_text_size;
-  top_layer->patch.splice(
+  top_layer->size_ += new_text->size() - deleted_text_size;
+  top_layer->patch.splice_shared(
     start.position,
     deleted_extent,
     inserted_extent,
-    optional<Text>{},
+    nullptr,
     move(new_text),
     deleted_text_size
   );

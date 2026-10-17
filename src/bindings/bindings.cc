@@ -1,4 +1,5 @@
 #include "addon-data.h"
+#include "prepared-edit-wrapper.h"
 #include "marker-index-wrapper.h"
 #include "patch-wrapper.h"
 #include "range-wrapper.h"
@@ -35,6 +36,7 @@ Object Init(Env env, Object exports) {
 
   PatchWrapper::init(env, exports);
   MarkerIndexWrapper::init(env, exports);
+  PreparedEditWrapper::init(env);
   TextBufferWrapper::init(env, exports);
   TextWriter::init(env, exports);
   TextReader::init(env, exports);

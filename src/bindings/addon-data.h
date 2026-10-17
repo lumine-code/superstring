@@ -18,6 +18,8 @@ public:
   // TextBufferSnapshotWrapper
   Napi::FunctionReference text_buffer_snapshot_wrapper_constructor;
 
+  Napi::FunctionReference prepared_edit_constructor;
+
   // TextBufferWrapper
   Napi::FunctionReference text_buffer_wrapper_constructor;
   Napi::FunctionReference regex_constructor;

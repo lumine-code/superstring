@@ -20,6 +20,29 @@ On macOS 13 and greater, the OS no longer offers GNU `libiconv`. We handle this 
 
 ## API
 
+### Prepared text edits
+
+`TextBuffer.prepareEdit(range, newText)` prepares one edit without mutating the buffer. Its immutable payload is shared with the buffer and any history patch. A prepared edit belongs to the buffer state in which it was created; mutations, resets and deserialization invalidate it. `commit()` rejects a stale edit with `ERR_STALE_EDIT` and never silently re-prepares it.
+
+- `getChange()` returns a frozen value snapshot with `oldStart`, `oldEnd`, `newStart`, `newEnd`, `oldText`, `newText`, `startIndex`, `oldEndIndex` and `newEndIndex`. Points and offsets count UTF-16 code units, not UTF-8 bytes; rows advance at LF. CRLF is retained in the text. When an edit forms a CRLF across an edge, its range includes the adjacent line-ending units so undo can address the same text exactly.
+- `createPatch()` returns an independently mutable patch sharing the immutable text. Create it before committing if the edit belongs in history.
+- `commit()` applies the edit once and releases its buffer reference and native payload. Whole-buffer edits retain the flat-layer representation needed for efficient subsequent typing.
+- `dispose()` releases an abandoned edit without applying it. It is idempotent and safe in `finally`, including after commit. Reading, making a patch or committing a closed edit throws.
+
+`TextBuffer.prepareEditFromChange(change)` prepares replay of an owning change returned by `Patch.getChanges()`, sharing its native payload instead of converting the strings again. It validates the range and deleted text against the current buffer. Invalid or geometry-only changes are rejected before mutation. Patch change objects and their points are immutable snapshots; changing or collecting the source patch cannot change their text or invalidate `toString()`.
+
+```js
+const edit = buffer.prepareEdit(range, newText);
+try {
+  const change = edit.getChange();
+  const historyPatch = edit.createPatch();
+  edit.commit();
+  // The document owner records history and publishes change after commit.
+} finally {
+  edit.dispose();
+}
+```
+
 ### Patch
 
 This data structure represents a transformation from input to output text, and it's useful for combining changes that occur at different points in time and space.

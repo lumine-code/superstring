@@ -20,6 +20,8 @@ public:
 
   explicit TextBufferWrapper(const Napi::CallbackInfo &info);
 
+  friend class PreparedEditWrapper;
+
 private:
   Napi::Value get_length(const Napi::CallbackInfo &info);
   Napi::Value get_extent(const Napi::CallbackInfo &info);
@@ -30,6 +32,8 @@ private:
   Napi::Value get_text_in_range(const Napi::CallbackInfo &info);
   void set_text(const Napi::CallbackInfo &info);
   void set_text_in_range(const Napi::CallbackInfo &info);
+  Napi::Value prepare_edit(const Napi::CallbackInfo &info);
+  Napi::Value prepare_edit_from_change(const Napi::CallbackInfo &info);
   Napi::Value diff(const Napi::CallbackInfo &info);
   Napi::Value line_for_row(const Napi::CallbackInfo &info);
   Napi::Value line_length_for_row(const Napi::CallbackInfo &info);

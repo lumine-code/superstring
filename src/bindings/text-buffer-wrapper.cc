@@ -8,6 +8,8 @@
 #include <cstring>
 
 #include "addon-data.h"
+#include "prepared-edit-wrapper.h"
+#include "change-wrapper.h"
 #include "text-buffer-wrapper.h"
 #include "number-conversion.h"
 #include "point-wrapper.h"
@@ -229,6 +231,8 @@ void TextBufferWrapper::init(Napi::Env env, Object exports) {
     InstanceMethod<&TextBufferWrapper::has_astral>("hasAstral", napi_default_method),
     InstanceMethod<&TextBufferWrapper::get_character_at_position>("getCharacterAtPosition", napi_default_method),
     InstanceMethod<&TextBufferWrapper::get_text_in_range>("getTextInRange", napi_default_method),
+    InstanceMethod<&TextBufferWrapper::prepare_edit>("prepareEdit", napi_default_method),
+    InstanceMethod<&TextBufferWrapper::prepare_edit_from_change>("prepareEditFromChange", napi_default_method),
     InstanceMethod<&TextBufferWrapper::set_text_in_range>("setTextInRange", napi_default_method),
     InstanceMethod<&TextBufferWrapper::get_text>("getText", napi_default_method),
     InstanceMethod<&TextBufferWrapper::set_text>("setText", napi_default_method),
@@ -341,6 +345,60 @@ void TextBufferWrapper::set_text(const CallbackInfo &info) {
   if (text) {
     text_buffer.set_text(move(*text));
   }
+}
+
+
+Napi::Value TextBufferWrapper::prepare_edit(const CallbackInfo &info) {
+  auto range = RangeWrapper::range_from_js(info[0]);
+  if (!range) return info.Env().Undefined();
+  auto text = string_conversion::string_from_js(info[1]);
+  if (!text) return info.Env().Undefined();
+  Point start = text_buffer.clip_position(range->start).position;
+  Point end = text_buffer.clip_position(range->end).position;
+  if (end < start) {
+    RangeError::New(info.Env(), "prepareEdit expects an ordered range").ThrowAsJavaScriptException();
+    return info.Env().Undefined();
+  }
+  auto old_text = std::make_shared<const Text>(text_buffer.text_in_range({start, end}));
+  auto new_text = std::make_shared<const Text>(move(*text));
+  Range edit_range{start, end};
+  auto expanded = text_buffer.canonicalize_edit(edit_range, old_text, new_text);
+  if (!expanded) {
+    Error::New(info.Env(), "Cannot prepare an unaddressable edit range").ThrowAsJavaScriptException();
+    return info.Env().Undefined();
+  }
+  Napi::Value new_value = *expanded
+    ? Napi::Value(info.Env(), string_conversion::string_to_js(info.Env(), new_text->content))
+    : info[1];
+  return PreparedEditWrapper::create(info.This().As<Object>(), edit_range,
+    move(old_text), move(new_text), info.Env().Undefined(), new_value);
+}
+
+Napi::Value TextBufferWrapper::prepare_edit_from_change(const CallbackInfo &info) {
+  auto wrapper = ChangeWrapper::from_js(info[0]);
+  if (!wrapper) return info.Env().Undefined();
+  const auto &change = wrapper->change;
+  if (!change.old_text || !change.new_text) {
+    TypeError::New(info.Env(), "A text edit requires old and new text").ThrowAsJavaScriptException();
+    return info.Env().Undefined();
+  }
+  Range range{change.new_start, change.new_start.traverse(change.old_end.traversal(change.old_start))};
+  auto old_text = change.old_text;
+  auto new_text = change.new_text;
+  auto expanded = text_buffer.canonicalize_edit(range, old_text, new_text);
+  if (!expanded || text_buffer.clip_position(range.start).position != range.start ||
+      text_buffer.clip_position(range.end).position != range.end ||
+      !text_buffer.text_matches_range(range, *old_text)) {
+    Error::New(info.Env(), "Patch change does not match the current buffer").ThrowAsJavaScriptException();
+    return info.Env().Undefined();
+  }
+  auto object = info[0].As<Object>();
+  Napi::Value old_value = *expanded ? info.Env().Undefined() : object.Get("oldText");
+  Napi::Value new_value = *expanded
+    ? Napi::Value(info.Env(), string_conversion::string_to_js(info.Env(), new_text->content))
+    : object.Get("newText");
+  return PreparedEditWrapper::create(info.This().As<Object>(), range,
+    move(old_text), move(new_text), old_value, new_value);
 }
 
 Napi::Value TextBufferWrapper::diff(const CallbackInfo &info) {
