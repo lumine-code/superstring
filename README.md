@@ -4,7 +4,8 @@ Provides native text patches, marker indexing, and text storage.
 
 Fork of [pulsar-edit/superstring](https://github.com/pulsar-edit/superstring).
 
-This repository is archived and is no longer maintained. [Lumine](https://github.com/lumine-code/lumine) replaced Superstring with its [internal JavaScript text model](https://github.com/lumine-code/lumine/blob/master/docs/javascript-document-core.md); normal installation, runtime and tests no longer depend on this native addon. The source and Git history remain available for optional differential comparisons. The build instructions and API documentation below describe the final historical implementation.
+> [!WARNING]
+> **This package is deprecated.** [Lumine](https://github.com/lumine-code/lumine) replaced this native backend with its [internal JavaScript text model](https://github.com/lumine-code/lumine/blob/master/docs/javascript-document-core.md). This repository is archived and no longer maintained.
 
 ## Features
 
